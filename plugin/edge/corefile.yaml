@@ -6,10 +6,8 @@ data:
         health
         log
         cache 30
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-           pods insecure
-           upstream
-           fallthrough in-addr.arpa ip6.arpa
+        kubernetes cluster.local {
+           fallthrough
         }
         optikon-edge ${CENTRAL_IP} ${LON} ${LAT}
         forward . ${CENTRAL_IP}:53

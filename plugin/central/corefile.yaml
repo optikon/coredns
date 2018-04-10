@@ -5,10 +5,8 @@ data:
         errors
         health
         log
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-           pods insecure
-           upstream
-           fallthrough in-addr.arpa ip6.arpa
+        kubernetes cluster.local {
+           fallthrough
         }
         optikon-central
     }
