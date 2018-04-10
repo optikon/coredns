@@ -41,6 +41,8 @@ func New() *OptikonEdge {
 // ServeDNS implements the plugin.Handler interface.
 func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
+	fmt.Println("REQUEST:", r.String())
+
 	// If the message is a response from Central, parse that response
 	// differently than a user query.
 	if r.Response {

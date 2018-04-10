@@ -12,7 +12,8 @@ COPY plugin/edge /go/src/wwwin-github.cisco.com/edge/optikon-dns/plugin/edge
 COPY plugin/plugin.cfg /go/src/github.com/coredns/coredns/plugin.cfg
 
 # Build the custom CoreDNS binary.
-RUN cd /go/src/github.com/coredns/coredns && make
+WORKDIR /go/src/github.com/coredns/coredns
+RUN make
 
 # Build a runtime container to use the custom binary.
 FROM alpine:latest
@@ -22,7 +23,7 @@ MAINTAINER Ross Flieger-Allison
 RUN apk --no-cache add bind-tools ca-certificates openssl && update-ca-certificates
 
 # Copy the custom binary from the build container.
-COPY --from=builder /go/bin/coredns /coredns
+COPY --from=builder /go/src/github.com/coredns/coredns/coredns /coredns
 
 # Expose DNS ports.
 EXPOSE 53 53/udp

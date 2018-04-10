@@ -2,6 +2,7 @@ package central
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
@@ -38,6 +39,8 @@ func (oc *OptikonCentral) populateTable() {
 
 // ServeDNS implements the plugin.Handler interface.
 func (oc *OptikonCentral) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+
+	fmt.Println("REQUEST:", r.String())
 
 	// Convert the Table to a JSON string.
 	jsonString, err := json.Marshal(oc.table)
