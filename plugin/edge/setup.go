@@ -30,6 +30,7 @@ func setup(c *caddy.Controller) error {
 
 	// Add the plugin handler to the dnsserver.
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
+		oe.Next = next
 		return oe
 	})
 

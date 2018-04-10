@@ -4,14 +4,15 @@ data:
     .:53 {
         errors
         health
+        log
+        cache 30
         kubernetes cluster.local in-addr.arpa ip6.arpa {
            pods insecure
            upstream
            fallthrough in-addr.arpa ip6.arpa
         }
-        prometheus :9153
-        proxy . /etc/resolv.conf
         optikon-edge ${CENTRAL_IP} ${LON} ${LAT}
+        forward . ${CENTRAL_IP}:53
     }
 kind: ConfigMap
 metadata:

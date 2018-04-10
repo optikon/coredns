@@ -3,17 +3,16 @@ FROM golang:1.10.0 as builder
 
 # Fetch the CoreDNS repo.
 RUN go get github.com/coredns/coredns
-WORKDIR /go/src/github.com/coredns
 
 # Mount the central and edge plugins.
-COPY plugin/central plugin/central
-COPY plugin/edge plugin/edge
+COPY plugin/central /go/src/wwwin-github.cisco.com/edge/optikon-dns/plugin/central
+COPY plugin/edge /go/src/wwwin-github.cisco.com/edge/optikon-dns/plugin/edge
 
 # Mount the custom plugin.cfg file.
-COPY plugin/plugin.cfg plugin.cfg
+COPY plugin/plugin.cfg /go/src/github.com/coredns/coredns/plugin.cfg
 
 # Build the custom CoreDNS binary.
-RUN make
+RUN cd /go/src/github.com/coredns/coredns && make
 
 # Build a runtime container to use the custom binary.
 FROM alpine:latest

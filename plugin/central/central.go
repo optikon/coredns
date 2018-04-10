@@ -1,24 +1,16 @@
 package central
 
 import (
-	"net"
-	"strconv"
+	"encoding/json"
 
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
+	"wwwin-github.cisco.com/edge/optikon-dns/plugin/edge"
 )
 
-// EdgeSite is a wrapper around all information needed about edge sites serving
-// content.
-type EdgeSite struct {
-	ip  string
-	lon float64
-	lat float64
-}
-
 // Table specifies the mapping from service DNS names to edge sites.
-type Table map[string][]*EdgeSite
+type Table map[string][]edge.Site
 
 // OptikonCentral is a plugin that returns your IP address, port and the
 // protocol used for connecting to CoreDNS.
@@ -35,11 +27,11 @@ func New() *OptikonCentral {
 }
 
 func (oc *OptikonCentral) populateTable() {
-	oc.table["echoserver"] = []*EdgeSite{
-		&EdgeSite{
-			ip:  "172.16.7.102",
-			lon: 55.680770,
-			lat: 12.543006,
+	oc.table["echoserver.default.svc.cluster.local"] = []edge.Site{
+		edge.Site{
+			IP:  "172.16.7.102",
+			Lon: 55.680770,
+			Lat: 12.543006,
 		},
 	}
 }
@@ -47,41 +39,35 @@ func (oc *OptikonCentral) populateTable() {
 // ServeDNS implements the plugin.Handler interface.
 func (oc *OptikonCentral) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
+	// Convert the Table to a JSON string.
+	jsonString, err := json.Marshal(oc.table)
+	if err != nil {
+		return 2, err
+	}
+
+	// Encapsolate the state of the request and reponse.
 	state := request.Request{W: w, Req: r}
 
-	a := new(dns.Msg)
-	a.SetReply(r)
-	a.Compress = true
-	a.Authoritative = true
+	// Init a response message.
+	res := new(dns.Msg)
+	res.SetReply(r)
+	res.Compress = true
+	res.Authoritative = false
+	res.Response = true
 
-	ip := state.IP()
-	var rr dns.RR
+	// Initialze a text resource record (RR) for the Table.
+	tab := new(dns.TXT)
+	tab.Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeTXT, Class: state.QClass()}
+	tab.Txt = []string{string(jsonString)}
 
-	switch state.Family() {
-	case 1:
-		rr = new(dns.A)
-		rr.(*dns.A).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeA, Class: state.QClass()}
-		rr.(*dns.A).A = net.ParseIP(ip).To4()
-	case 2:
-		rr = new(dns.AAAA)
-		rr.(*dns.AAAA).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeAAAA, Class: state.QClass()}
-		rr.(*dns.AAAA).AAAA = net.ParseIP(ip)
-	}
+	// Send it as part of the Extra/Additional field of the DNS packet.
+	res.Extra = []dns.RR{tab}
 
-	srv := new(dns.SRV)
-	srv.Hdr = dns.RR_Header{Name: "_" + state.Proto() + "." + state.QName(), Rrtype: dns.TypeSRV, Class: state.QClass()}
-	if state.QName() == "." {
-		srv.Hdr.Name = "_" + state.Proto() + state.QName()
-	}
-	port, _ := strconv.Atoi(state.Port())
-	srv.Port = uint16(port)
-	srv.Target = "."
+	// Write the response message.
+	state.SizeAndDo(res)
+	w.WriteMsg(res)
 
-	a.Extra = []dns.RR{rr, srv}
-
-	state.SizeAndDo(a)
-	w.WriteMsg(a)
-
+	// Return no errors.
 	return 0, nil
 }
 
