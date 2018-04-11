@@ -10,7 +10,7 @@ data:
            fallthrough
         }
         optikon-edge ${CENTRAL_IP} ${LON} ${LAT}
-        forward . ${CENTRAL_IP}:53
+        forward . ${CENTRAL_IP}:30053
     }
 kind: ConfigMap
 metadata:
