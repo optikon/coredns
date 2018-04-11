@@ -14,12 +14,12 @@ spec:
     port: 53
     protocol: UDP
     targetPort: 53
-    nodePort: 30153
+    nodePort: 30053
   - name: dns-tcp
     port: 53
     protocol: TCP
     targetPort: 53
-    nodePort: 30253
+    nodePort: 30053
   selector:
     k8s-app: kube-dns
   sessionAffinity: None
