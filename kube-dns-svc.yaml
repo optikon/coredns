@@ -9,6 +9,7 @@ metadata:
   namespace: kube-system
   selfLink: /api/v1/namespaces/kube-system/services/kube-dns
 spec:
+  clusterIP: 10.96.0.10
   ports:
   - name: dns
     port: 53
