@@ -2,26 +2,23 @@ package edge
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
+	"wwwin-github.cisco.com/edge/optikon-dns/plugin/central"
 
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
 	"golang.org/x/net/context"
 )
-
-// Site is a wrapper around all information needed about edge sites serving
-// content.
-type Site struct {
-	IP  string  `json:"ip"`
-	Lon float64 `json:"lon"`
-	Lat float64 `json:"lat"`
-}
 
 // Coords is a 2-tuple of longitude and latitude values.
 type Coords [2]float64
@@ -75,8 +72,6 @@ func (oe *OptikonEdge) SetLat(v float64) { oe.coords[1] = v }
 
 // ServeDNS implements plugin.Handler.
 func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-
-	fmt.Println("REQUEST:", r.String())
 
 	state := request.Request{W: w, Req: r}
 	if !oe.match(state) {
@@ -153,7 +148,49 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 		// fit the udp buffer.
 		ret, _ = state.Scrub(ret)
 
-		fmt.Println("PROXY REPLY MESSAGE:", ret.String())
+		fmt.Println("PROXY REPLY:", ret)
+
+		// Assert an additional entry for the table exists.
+		if len(ret.Extra) == 0 {
+			return 1, errors.New("expected Extra entry to be non-empty")
+		}
+
+		// Extract the Table from the response.
+		tabRR := ret.Extra[0]
+		re := regexp.MustCompile("^.*\t0\tIN\tTXT\t\"({.*})\"$")
+		tabSubmatches := re.FindStringSubmatch(tabRR.String())
+		fmt.Println("SUBMATCHES:", tabSubmatches)
+		if len(tabSubmatches) < 2 {
+			return 2, errors.New("unable to parse Table returned from central")
+		}
+		tabStr, _ := strconv.Unquote("\"" + tabSubmatches[1] + "\"")
+		var tab central.Table
+		if err := json.Unmarshal([]byte(tabStr), &tab); err != nil {
+			fmt.Println("TABSTR:", tabStr)
+			fmt.Println("ERROR:", err)
+			return 2, errors.New("unable to parse Table returned from central")
+		}
+
+		fmt.Println("TAB:", tab)
+
+		// Determine the closest edge cluster to resolve to.
+		closest, err := oe.computeClosestCluster(&tab, state)
+
+		// TODO: Remove Extra entry before returning back home.
+
+		// Write the closest cluster IP as a DNS record.
+		var rr dns.RR
+		switch state.Family() {
+		case 1:
+			rr = new(dns.A)
+			rr.(*dns.A).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeA, Class: state.QClass()}
+			rr.(*dns.A).A = net.ParseIP(closest).To4()
+		case 2:
+			rr = new(dns.AAAA)
+			rr.(*dns.AAAA).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeAAAA, Class: state.QClass()}
+			rr.(*dns.AAAA).AAAA = net.ParseIP(closest)
+		}
+		ret.Answer = []dns.RR{rr}
 
 		w.WriteMsg(ret)
 
@@ -165,6 +202,12 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 	}
 
 	return dns.RcodeServerFailure, errNoHealthy
+}
+
+// Computes the proximity of the edge clusters running the requested service
+// and returns the IP address of the closest cluster (geographically).
+func (oe *OptikonEdge) computeClosestCluster(tab *central.Table, state request.Request) (string, error) {
+	return "172.16.7.102", nil
 }
 
 func (oe *OptikonEdge) match(state request.Request) bool {
