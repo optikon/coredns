@@ -2,7 +2,6 @@ package central
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
@@ -10,11 +9,11 @@ import (
 )
 
 // Table specifies the mapping from service DNS names to edge sites.
-type Table map[string][]Site
+type Table map[string][]EdgeSite
 
-// Site is a wrapper around all information needed about edge sites serving
+// EdgeSite is a wrapper around all information needed about edge sites serving
 // content.
-type Site struct {
+type EdgeSite struct {
 	IP  string  `json:"ip"`
 	Lon float64 `json:"lon"`
 	Lat float64 `json:"lat"`
@@ -35,8 +34,8 @@ func New() *OptikonCentral {
 }
 
 func (oc *OptikonCentral) populateTable() {
-	oc.table["echoserver.default.svc.cluster.local"] = []Site{
-		Site{
+	oc.table["echoserver.default.svc.cluster.local"] = []EdgeSite{
+		EdgeSite{
 			IP:  "172.16.7.102",
 			Lon: 55.680770,
 			Lat: 12.543006,
@@ -46,8 +45,6 @@ func (oc *OptikonCentral) populateTable() {
 
 // ServeDNS implements the plugin.Handler interface.
 func (oc *OptikonCentral) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-
-	fmt.Println("REQUEST:", r.String())
 
 	// Convert the Table to a JSON string.
 	jsonString, err := json.Marshal(oc.table)

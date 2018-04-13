@@ -20,9 +20,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-// Coords is a 2-tuple of longitude and latitude values.
-type Coords [2]float64
-
 // OptikonEdge represents a plugin instance that can proxy requests to another (DNS) server. It has a list
 // of proxies each representing one upstream proxy.
 type OptikonEdge struct {
@@ -42,7 +39,8 @@ type OptikonEdge struct {
 
 	Next plugin.Handler
 
-	coords   Coords
+	lon      float64
+	lat      float64
 	services []string
 }
 
@@ -63,12 +61,6 @@ func (oe *OptikonEdge) Len() int { return len(oe.proxies) }
 
 // Name implements plugin.Handler.
 func (oe *OptikonEdge) Name() string { return "optikon-edge" }
-
-// SetLon sets the edge site longitude.
-func (oe *OptikonEdge) SetLon(v float64) { oe.coords[0] = v }
-
-// SetLat sets the edge site latitude.
-func (oe *OptikonEdge) SetLat(v float64) { oe.coords[1] = v }
 
 // ServeDNS implements plugin.Handler.
 func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
@@ -148,35 +140,50 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 		// fit the udp buffer.
 		ret, _ = state.Scrub(ret)
 
-		fmt.Println("PROXY REPLY:", ret)
-
 		// Assert an additional entry for the table exists.
 		if len(ret.Extra) == 0 {
-			return 1, errors.New("expected Extra entry to be non-empty")
+			return dns.RcodeServerFailure, errTableParseFailure
 		}
 
 		// Extract the Table from the response.
 		tabRR := ret.Extra[0]
-		re := regexp.MustCompile("^.*\t0\tIN\tTXT\t\"({.*})\"$")
-		tabSubmatches := re.FindStringSubmatch(tabRR.String())
-		fmt.Println("SUBMATCHES:", tabSubmatches)
+		tabSubmatches := tableRegex.FindStringSubmatch(tabRR.String())
 		if len(tabSubmatches) < 2 {
-			return 2, errors.New("unable to parse Table returned from central")
+			return dns.RcodeServerFailure, errTableParseFailure
 		}
-		tabStr, _ := strconv.Unquote("\"" + tabSubmatches[1] + "\"")
+		tabStr, err := strconv.Unquote(fmt.Sprintf("\"%s\"", tabSubmatches[1]))
+		if err != nil {
+			return dns.RcodeServerFailure, errTableParseFailure
+		}
 		var tab central.Table
 		if err := json.Unmarshal([]byte(tabStr), &tab); err != nil {
-			fmt.Println("TABSTR:", tabStr)
-			fmt.Println("ERROR:", err)
-			return 2, errors.New("unable to parse Table returned from central")
+			return dns.RcodeServerFailure, errTableParseFailure
 		}
 
-		fmt.Println("TAB:", tab)
+		// Remove the Table entry from the return message.
+		ret.Extra = ret.Extra[1:]
 
-		// Determine the closest edge cluster to resolve to.
-		closest, err := oe.computeClosestCluster(&tab, state)
+		// Parse the target domain out of the request (NOTE: This will always have
+		// a trailing dot.)
+		targetDomain := state.Name()
 
-		// TODO: Remove Extra entry before returning back home.
+		// Determine if there is an entry for the DNS name we're looking for.
+		edgeSites, found := tab[targetDomain[:(len(targetDomain)-1)]]
+		if !found || len(edgeSites) == 0 {
+			w.WriteMsg(ret)
+			return 0, nil
+		}
+
+		// Compute the distance to the first edge site.
+		closest := edgeSites[0].IP
+		minDist := Distance(oe.lat, oe.lon, edgeSites[0].Lat, edgeSites[0].Lon)
+		for _, edgeSite := range edgeSites {
+			dist := Distance(oe.lat, oe.lon, edgeSite.Lat, edgeSite.Lon)
+			if dist < minDist {
+				minDist = dist
+				closest = edgeSite.IP
+			}
+		}
 
 		// Write the closest cluster IP as a DNS record.
 		var rr dns.RR
@@ -192,6 +199,7 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 		}
 		ret.Answer = []dns.RR{rr}
 
+		// Write the response message.
 		w.WriteMsg(ret)
 
 		return 0, nil
@@ -202,12 +210,6 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 	}
 
 	return dns.RcodeServerFailure, errNoHealthy
-}
-
-// Computes the proximity of the edge clusters running the requested service
-// and returns the IP address of the closest cluster (geographically).
-func (oe *OptikonEdge) computeClosestCluster(tab *central.Table, state request.Request) (string, error) {
-	return "172.16.7.102", nil
 }
 
 func (oe *OptikonEdge) match(state request.Request) bool {
@@ -237,9 +239,11 @@ func (oe *OptikonEdge) isAllowedDomain(name string) bool {
 func (oe *OptikonEdge) list() []*Proxy { return oe.p.List(oe.proxies) }
 
 var (
-	errInvalidDomain = errors.New("invalid domain for forward")
-	errNoHealthy     = errors.New("no healthy proxies")
-	errNoOptikonEdge = errors.New("no optikon-edge defined")
+	errInvalidDomain         = errors.New("invalid domain for forward")
+	errNoHealthy             = errors.New("no healthy proxies")
+	errNoOptikonEdge         = errors.New("no optikon-edge defined")
+	errTableParseFailure     = errors.New("unable to parse Table returned from central")
+	errFindingClosestCluster = errors.New("unable to compute closest edge cluster")
 )
 
 // policy tells forward what policy for selecting upstream it uses.
@@ -248,4 +252,8 @@ type policy int
 const (
 	randomPolicy policy = iota
 	roundRobinPolicy
+)
+
+var (
+	tableRegex = regexp.MustCompile("^.*\t0\tIN\tTXT\t\"({.*})\"$")
 )

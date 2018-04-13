@@ -99,7 +99,7 @@ func parseOptikonEdge(c *caddy.Controller) (*OptikonEdge, error) {
 		if err != nil {
 			return oe, err
 		}
-		oe.SetLon(parsedLon)
+		oe.lon = parsedLon
 
 		// Parse the latitude value.
 		var lat string
@@ -110,7 +110,7 @@ func parseOptikonEdge(c *caddy.Controller) (*OptikonEdge, error) {
 		if err != nil {
 			return oe, err
 		}
-		oe.SetLat(parsedLat)
+		oe.lat = parsedLat
 
 		if !c.Args(&oe.from) {
 			return oe, c.ArgErr()

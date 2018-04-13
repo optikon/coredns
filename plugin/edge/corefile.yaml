@@ -9,7 +9,7 @@ data:
         kubernetes cluster.local {
            fallthrough
         }
-        optikon-edge ${LON} ${LAT} . ${CENTRAL_IP}:30053
+        optikon-edge ${LON} ${LAT} . ${CENTRAL_IP}:53
     }
 kind: ConfigMap
 metadata:
