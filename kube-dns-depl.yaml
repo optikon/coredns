@@ -8,7 +8,6 @@ metadata:
     k8s-app: kube-dns
   name: coredns
   namespace: kube-system
-  resourceVersion: "523"
   selfLink: /apis/extensions/v1beta1/namespaces/kube-system/deployments/coredns
 spec:
   progressDeadlineSeconds: 600

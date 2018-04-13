@@ -9,9 +9,8 @@ data:
         kubernetes cluster.local {
            fallthrough
         }
-        prometheus :9153
         optikon-edge ${LON} ${LAT} . ${CENTRAL_IP}:53
-        proxy . /etc/resolv.conf
+        proxy . 8.8.8.8:53
     }
 kind: ConfigMap
 metadata:
