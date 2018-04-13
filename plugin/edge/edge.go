@@ -171,7 +171,7 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 		edgeSites, found := tab[targetDomain[:(len(targetDomain)-1)]]
 		if !found || len(edgeSites) == 0 {
 			w.WriteMsg(ret)
-			return 0, nil
+			return dns.RcodeNameError, nil
 		}
 
 		// Compute the distance to the first edge site.
