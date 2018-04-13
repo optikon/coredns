@@ -171,11 +171,7 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 		edgeSites, found := tab[targetDomain[:(len(targetDomain)-1)]]
 		if !found || len(edgeSites) == 0 {
 			w.WriteMsg(ret)
-			// NOTE: Correct behavior is to return NXDOMAIN (dns.RcodeNameError)
-			// here and forwarding the request to non-local DNS nameservers if
-			// there are any. Instead, we're returning a SERVFAIL so the next
-			// nameserver on the host is used.
-			return dns.RcodeServerFailure, nil
+			return dns.RcodeNameError, nil
 		}
 
 		// Compute the distance to the first edge site.
