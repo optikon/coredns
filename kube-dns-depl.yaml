@@ -33,7 +33,7 @@ spec:
       - args:
         - -conf
         - /etc/coredns/Corefile
-        image: dockerhub.cisco.com/intelligent-edge-dev-docker-local/optikon-dns:1.0.0
+        image: intelligentedgeadmin/optikon-dns:1.0.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 5
