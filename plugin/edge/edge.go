@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/up"
 	"github.com/coredns/coredns/request"
 	"wwwin-github.cisco.com/edge/optikon-dns/plugin/central"
 
@@ -39,14 +40,28 @@ type OptikonEdge struct {
 
 	Next plugin.Handler
 
-	lon      float64
-	lat      float64
-	services []string
+	lon float64
+	lat float64
+
+	services *ConcurrentStringSet
+
+	svcReadProbe    *up.Probe
+	svcReadInterval time.Duration
+	svcPushInterval time.Duration
 }
 
 // New returns a new OptikonEdge.
 func New() *OptikonEdge {
-	oe := &OptikonEdge{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcDuration}
+	oe := &OptikonEdge{
+		maxfails:     2,
+		tlsConfig:    new(tls.Config),
+		expire:       defaultExpire,
+		p:            new(random),
+		from:         ".",
+		hcInterval:   hcDuration,
+		services:     NewConcurrentStringSet(),
+		svcReadProbe: up.New(),
+	}
 	return oe
 }
 

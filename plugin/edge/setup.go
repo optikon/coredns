@@ -8,7 +8,6 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	pkgtls "github.com/coredns/coredns/plugin/pkg/tls"
 
@@ -43,9 +42,6 @@ func setup(c *caddy.Controller) error {
 
 	// Register Prometheus metrics.
 	c.OnStartup(func() error {
-		once.Do(func() {
-			metrics.MustRegister(c, RequestCount, RcodeCount, RequestDuration, HealthcheckFailureCount, SocketGauge)
-		})
 		return oe.OnStartup()
 	})
 
@@ -58,15 +54,19 @@ func setup(c *caddy.Controller) error {
 
 // OnStartup starts a goroutines for all proxies.
 func (oe *OptikonEdge) OnStartup() (err error) {
+	oe.startReadingServices()
 	for _, p := range oe.proxies {
 		p.start(oe.hcInterval)
+		p.startPushingServices(oe.services)
 	}
 	return nil
 }
 
 // OnShutdown stops all configured proxies.
 func (oe *OptikonEdge) OnShutdown() error {
+	oe.stopReadingServices()
 	for _, p := range oe.proxies {
+		p.stopPushingServices()
 		p.close()
 	}
 	return nil
@@ -111,6 +111,20 @@ func parseOptikonEdge(c *caddy.Controller) (*OptikonEdge, error) {
 			return oe, err
 		}
 		oe.lat = parsedLat
+
+		// Parse the service read interval.
+		var svcReadIntervalSecs int
+		if !c.Args(&svcReadIntervalSecs) {
+			return oe, c.ArgErr()
+		}
+		oe.svcReadInterval = svcReadIntervalSecs * time.Second
+
+		// Parse the service push interval.
+		var svcPushIntervalSecs int
+		if !c.Args(&svcPushIntervalSecs) {
+			return oe, c.ArgErr()
+		}
+		oe.svcPushInterval = svcPushIntervalSecs * time.Second
 
 		if !c.Args(&oe.from) {
 			return oe, c.ArgErr()

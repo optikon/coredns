@@ -22,15 +22,19 @@ type Proxy struct {
 	// health checking
 	probe *up.Probe
 	fails uint32
+
+	// Daemon connection.
+	daemonProbe *up.Probe
 }
 
 // NewProxy returns a new proxy.
 func NewProxy(addr string, tlsConfig *tls.Config) *Proxy {
 	p := &Proxy{
-		addr:      addr,
-		fails:     0,
-		probe:     up.New(),
-		transport: newTransport(addr, tlsConfig),
+		addr:        addr,
+		fails:       0,
+		probe:       up.New(),
+		transport:   newTransport(addr, tlsConfig),
+		daemonProbe: up.New(),
 	}
 	p.client = dnsClient(tlsConfig)
 	return p
@@ -63,7 +67,7 @@ func (p *Proxy) Dial(proto string) (*dns.Conn, error) { return p.transport.Dial(
 // Yield returns the connection to the pool.
 func (p *Proxy) Yield(c *dns.Conn) { p.transport.Yield(c) }
 
-// Healthcheck kicks of a round of health checks for this proxy.
+// Healthcheck kicks off a round of health checks for this proxy.
 func (p *Proxy) Healthcheck() { p.probe.Do(p.Check) }
 
 // Down returns true if this proxy is down, i.e. has *more* fails than maxfails.
@@ -78,12 +82,16 @@ func (p *Proxy) Down(maxfails uint32) bool {
 
 // close stops the health checking goroutine.
 func (p *Proxy) close() {
+	p.daemonProbe.Stop()
 	p.probe.Stop()
 	p.transport.Stop()
 }
 
 // start starts the proxy's healthchecking.
-func (p *Proxy) start(duration time.Duration) { p.probe.Start(duration) }
+func (p *Proxy) start(healthCheckDuration, servicePushDuration time.Duration) {
+	p.probe.Start(healthCheckDuration)
+	p.daemonProbe.Start(servicePushDuration)
+}
 
 const (
 	dialTimeout = 4 * time.Second

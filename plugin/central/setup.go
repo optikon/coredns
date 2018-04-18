@@ -24,15 +24,13 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("optikon-central", err)
 	}
 
-	// TODO: Don't use hardcoded values in the future.
-	oc.populateTable()
-
 	// Add the plugin handler to the dnsserver.
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		return oc
 	})
 
-	// TODO: START ROUTINE TO LISTEN FOR TABLE UPDATES?
+	// Start Go routine for listening to edge clusters for Table updates.
+	go oc.listenForTableUpdates()
 
 	return nil
 }

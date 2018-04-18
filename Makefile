@@ -1,7 +1,7 @@
 # Makefile for Optikon DNS.
 
 IMAGE ?= dockerhub.cisco.com/intelligent-edge-dev-docker-local/optikon-dns
-TAG ?= 1.0.0
+TAG ?= 1.1.0
 
 # Build the custom CoreDNS Docker image.
 .PHONY: all

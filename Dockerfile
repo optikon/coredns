@@ -29,5 +29,8 @@ COPY --from=builder /go/src/github.com/coredns/coredns/coredns /coredns
 # Expose DNS ports.
 EXPOSE 53 53/udp
 
+# Expose the daemon process port.
+EXPOSE 9090
+
 # Mount the executable for entry.
 ENTRYPOINT ["/coredns"]

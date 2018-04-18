@@ -33,16 +33,6 @@ func New() *OptikonCentral {
 	return oc
 }
 
-func (oc *OptikonCentral) populateTable() {
-	oc.table["echoserver.default.svc.cluster.local"] = []EdgeSite{
-		EdgeSite{
-			IP:  "172.16.7.102",
-			Lon: 55.680770,
-			Lat: 12.543006,
-		},
-	}
-}
-
 // ServeDNS implements the plugin.Handler interface.
 func (oc *OptikonCentral) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
@@ -80,3 +70,8 @@ func (oc *OptikonCentral) ServeDNS(ctx context.Context, w dns.ResponseWriter, r 
 
 // Name implements the Handler interface.
 func (oc *OptikonCentral) Name() string { return "optikon-central" }
+
+// Listens for incoming requests from Edge clusters to send Table updates.
+func (oc *OptikonCentral) listenForTableUpdates() {
+
+}
