@@ -9,6 +9,7 @@ data:
            fallthrough
         }
         optikon-central
+        proxy . 8.8.8.8:53
     }
 kind: ConfigMap
 metadata:
