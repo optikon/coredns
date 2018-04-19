@@ -34,7 +34,7 @@ spec:
         - -conf
         - /etc/coredns/Corefile
         image: intelligentedgeadmin/optikon-dns:1.0.0
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 5
           httpGet:

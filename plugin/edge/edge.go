@@ -142,21 +142,30 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 
 		// Assert an additional entry for the table exists.
 		if len(ret.Extra) == 0 {
-			return dns.RcodeServerFailure, errTableParseFailure
+			if len(ret.Answer) == 0 {
+				fmt.Println("ERROR: No Additional entries returned!")
+				return dns.RcodeServerFailure, errTableParseFailure
+			}
+			w.WriteMsg(ret)
+			return 0, nil
 		}
 
 		// Extract the edge sites from the response.
 		edgeSiteRR := ret.Extra[0]
 		edgeSiteSubmatches := edgeSiteRegex.FindStringSubmatch(edgeSiteRR.String())
 		if len(edgeSiteSubmatches) < 2 {
+			fmt.Println("EDGESITERR:", edgeSiteRR)
+			fmt.Println("EDGESITESUBMATCHES:", edgeSiteSubmatches)
 			return dns.RcodeServerFailure, errTableParseFailure
 		}
 		edgeSiteStr, err := strconv.Unquote(fmt.Sprintf("\"%s\"", edgeSiteSubmatches[1]))
 		if err != nil {
+			fmt.Println("EDGESITESTR:", edgeSiteStr)
 			return dns.RcodeServerFailure, errTableParseFailure
 		}
 		var edgeSites []central.EdgeSite
 		if err := json.Unmarshal([]byte(edgeSiteStr), &edgeSites); err != nil {
+			fmt.Println("EDGESITESTR:", edgeSiteStr)
 			return dns.RcodeServerFailure, errTableParseFailure
 		}
 
