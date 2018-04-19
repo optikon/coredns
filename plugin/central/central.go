@@ -40,13 +40,13 @@ func (oc *OptikonCentral) populateTable() {
 	oc.table["kubernetes.default.svc.cluster.external"] = []EdgeSite{
 		EdgeSite{
 			IP:  "172.16.7.102",
-			Lon: 55.680770,
-			Lat: 12.543006,
+			Lon: 55.664023,
+			Lat: 12.610126,
 		},
 		EdgeSite{
 			IP:  "172.16.7.103",
-			Lon: 55.664023,
-			Lat: 12.610126,
+			Lon: 55.680770,
+			Lat: 12.543006,
 		},
 		EdgeSite{
 			IP:  "172.16.7.104",
@@ -58,13 +58,13 @@ func (oc *OptikonCentral) populateTable() {
 	oc.table["nginx-kubecon.default.svc.cluster.external"] = []EdgeSite{
 		EdgeSite{
 			IP:  "172.16.7.102",
-			Lon: 55.680770,
-			Lat: 12.543006,
+			Lon: 55.664023,
+			Lat: 12.610126,
 		},
 		EdgeSite{
 			IP:  "172.16.7.103",
-			Lon: 55.664023,
-			Lat: 12.610126,
+			Lon: 55.680770,
+			Lat: 12.543006,
 		},
 	}
 }
