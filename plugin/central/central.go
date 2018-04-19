@@ -37,58 +37,6 @@ func New() *OptikonCentral {
 
 func (oc *OptikonCentral) populateTable() {
 
-	oc.table["europe-prometheus-optikon-prom-chart-kube-state-metrics.default.svc.cluster.local"] = []EdgeSite{
-		EdgeSite{
-			IP:  "172.16.7.102",
-			Lon: 55.680770,
-			Lat: 12.543006,
-		},
-		EdgeSite{
-			IP:  "172.16.7.103",
-			Lon: 55.664023,
-			Lat: 12.610126,
-		},
-	}
-
-	oc.table["europe-prometheus-optikon-prom-chart-node-exporter.default.svc.cluster.local"] = []EdgeSite{
-		EdgeSite{
-			IP:  "172.16.7.102",
-			Lon: 55.680770,
-			Lat: 12.543006,
-		},
-		EdgeSite{
-			IP:  "172.16.7.103",
-			Lon: 55.664023,
-			Lat: 12.610126,
-		},
-	}
-
-	oc.table["europe-prometheus-optikon-prom-chart-pushgateway.default.svc.cluster.local"] = []EdgeSite{
-		EdgeSite{
-			IP:  "172.16.7.102",
-			Lon: 55.680770,
-			Lat: 12.543006,
-		},
-		EdgeSite{
-			IP:  "172.16.7.103",
-			Lon: 55.664023,
-			Lat: 12.610126,
-		},
-	}
-
-	oc.table["europe-prometheus-optikon-prom-chart-server.default.svc.cluster.local"] = []EdgeSite{
-		EdgeSite{
-			IP:  "172.16.7.102",
-			Lon: 55.680770,
-			Lat: 12.543006,
-		},
-		EdgeSite{
-			IP:  "172.16.7.103",
-			Lon: 55.664023,
-			Lat: 12.610126,
-		},
-	}
-
 	oc.table["kubernetes.default.svc.cluster.local"] = []EdgeSite{
 		EdgeSite{
 			IP:  "172.16.7.102",
@@ -100,6 +48,11 @@ func (oc *OptikonCentral) populateTable() {
 			Lon: 55.664023,
 			Lat: 12.610126,
 		},
+		EdgeSite{
+			IP:  "172.16.7.104",
+			Lon: 55.6748923,
+			Lat: 12.5534,
+		},
 	}
 
 	oc.table["nginx-kubecon.default.svc.cluster.local"] = []EdgeSite{
@@ -107,6 +60,11 @@ func (oc *OptikonCentral) populateTable() {
 			IP:  "172.16.7.102",
 			Lon: 55.680770,
 			Lat: 12.543006,
+		},
+		EdgeSite{
+			IP:  "172.16.7.103",
+			Lon: 55.664023,
+			Lat: 12.610126,
 		},
 	}
 }
