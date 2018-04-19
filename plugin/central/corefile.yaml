@@ -5,6 +5,9 @@ data:
         errors
         health
         log
+        kubernetes cluster.local {
+           fallthrough
+        }
         optikon-central
         proxy . 8.8.8.8:53
     }

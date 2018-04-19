@@ -37,7 +37,7 @@ func New() *OptikonCentral {
 
 func (oc *OptikonCentral) populateTable() {
 
-	oc.table["kubernetes.default.svc.cluster.local"] = []EdgeSite{
+	oc.table["kubernetes.default.svc.cluster.external"] = []EdgeSite{
 		EdgeSite{
 			IP:  "172.16.7.102",
 			Lon: 55.680770,
@@ -55,7 +55,7 @@ func (oc *OptikonCentral) populateTable() {
 		},
 	}
 
-	oc.table["nginx-kubecon.default.svc.cluster.local"] = []EdgeSite{
+	oc.table["nginx-kubecon.default.svc.cluster.external"] = []EdgeSite{
 		EdgeSite{
 			IP:  "172.16.7.102",
 			Lon: 55.680770,
