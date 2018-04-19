@@ -14,6 +14,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/up"
 	"github.com/coredns/coredns/request"
+	"k8s.io/client-go/kubernetes"
 	"wwwin-github.cisco.com/edge/optikon-dns/plugin/central"
 
 	"github.com/miekg/dns"
@@ -38,12 +39,13 @@ type OptikonEdge struct {
 
 	forceTCP bool // also here for testing
 
-	Next plugin.Handler
+	Next      plugin.Handler
+	clientset *kubernetes.Clientset
 
 	lon float64
 	lat float64
 
-	services *ConcurrentStringSet
+	services *ConcurrentStringSlice
 
 	svcReadProbe    *up.Probe
 	svcReadInterval time.Duration
@@ -59,7 +61,7 @@ func New() *OptikonEdge {
 		p:            new(random),
 		from:         ".",
 		hcInterval:   hcDuration,
-		services:     NewConcurrentStringSet(),
+		services:     NewConcurrentStringSlice(),
 		svcReadProbe: up.New(),
 	}
 	return oe
@@ -68,7 +70,7 @@ func New() *OptikonEdge {
 // SetProxy appends p to the proxy list and starts healthchecking.
 func (oe *OptikonEdge) SetProxy(p *Proxy) {
 	oe.proxies = append(oe.proxies, p)
-	p.start(oe.hcInterval)
+	p.start(oe.hcInterval, oe.svcPushInterval)
 }
 
 // Len returns the number of configured proxies.
@@ -157,34 +159,33 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 
 		// Assert an additional entry for the table exists.
 		if len(ret.Extra) == 0 {
-			return dns.RcodeServerFailure, errTableParseFailure
+			if len(ret.Answer) == 0 {
+				return dns.RcodeServerFailure, errTableParseFailure
+			}
+			w.WriteMsg(ret)
+			return 0, nil
 		}
 
-		// Extract the Table from the response.
-		tabRR := ret.Extra[0]
-		tabSubmatches := tableRegex.FindStringSubmatch(tabRR.String())
-		if len(tabSubmatches) < 2 {
+		// Extract the edge sites from the response.
+		edgeSiteRR := ret.Extra[0]
+		edgeSiteSubmatches := edgeSiteRegex.FindStringSubmatch(edgeSiteRR.String())
+		if len(edgeSiteSubmatches) < 2 {
 			return dns.RcodeServerFailure, errTableParseFailure
 		}
-		tabStr, err := strconv.Unquote(fmt.Sprintf("\"%s\"", tabSubmatches[1]))
+		edgeSiteStr, err := strconv.Unquote(fmt.Sprintf("\"%s\"", edgeSiteSubmatches[1]))
 		if err != nil {
 			return dns.RcodeServerFailure, errTableParseFailure
 		}
-		var tab central.Table
-		if err := json.Unmarshal([]byte(tabStr), &tab); err != nil {
+		var edgeSites []central.EdgeSite
+		if err := json.Unmarshal([]byte(edgeSiteStr), &edgeSites); err != nil {
 			return dns.RcodeServerFailure, errTableParseFailure
 		}
 
 		// Remove the Table entry from the return message.
 		ret.Extra = ret.Extra[1:]
 
-		// Parse the target domain out of the request (NOTE: This will always have
-		// a trailing dot.)
-		targetDomain := state.Name()
-
-		// Determine if there is an entry for the DNS name we're looking for.
-		edgeSites, found := tab[targetDomain[:(len(targetDomain)-1)]]
-		if !found || len(edgeSites) == 0 {
+		// If the list is empty, call the next plugin (proxy).
+		if len(edgeSites) == 0 {
 			return plugin.NextOrFailure(oe.Name(), oe.Next, ctx, w, r)
 		}
 
@@ -269,5 +270,5 @@ const (
 )
 
 var (
-	tableRegex = regexp.MustCompile("^.*\t0\tIN\tTXT\t\"({.*})\"$")
+	edgeSiteRegex = regexp.MustCompile(`^.*\t0\tIN\tTXT\t\"(\[.*\])\"$`)
 )

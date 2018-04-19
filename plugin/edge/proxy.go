@@ -24,17 +24,17 @@ type Proxy struct {
 	fails uint32
 
 	// Daemon connection.
-	daemonProbe *up.Probe
+	pushProbe *up.Probe
 }
 
 // NewProxy returns a new proxy.
 func NewProxy(addr string, tlsConfig *tls.Config) *Proxy {
 	p := &Proxy{
-		addr:        addr,
-		fails:       0,
-		probe:       up.New(),
-		transport:   newTransport(addr, tlsConfig),
-		daemonProbe: up.New(),
+		addr:      addr,
+		fails:     0,
+		probe:     up.New(),
+		transport: newTransport(addr, tlsConfig),
+		pushProbe: up.New(),
 	}
 	p.client = dnsClient(tlsConfig)
 	return p
@@ -82,7 +82,7 @@ func (p *Proxy) Down(maxfails uint32) bool {
 
 // close stops the health checking goroutine.
 func (p *Proxy) close() {
-	p.daemonProbe.Stop()
+	p.pushProbe.Stop()
 	p.probe.Stop()
 	p.transport.Stop()
 }
@@ -90,7 +90,22 @@ func (p *Proxy) close() {
 // start starts the proxy's healthchecking.
 func (p *Proxy) start(healthCheckDuration, servicePushDuration time.Duration) {
 	p.probe.Start(healthCheckDuration)
-	p.daemonProbe.Start(servicePushDuration)
+	p.pushProbe.Start(servicePushDuration)
+}
+
+// Starts the process of pushing the list of services to central proxies.
+func (p *Proxy) startPushingServices(services *ConcurrentStringSlice) {
+
+	// Packages services into JSON and posts to central proxy.
+	p.pushProbe.Do(func() error {
+		json, err := services.ToJSON()
+		if err != nil {
+			return err
+		}
+		//
+		// TODO: FINISH!!!
+		//
+	})
 }
 
 const (

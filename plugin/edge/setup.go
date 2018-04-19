@@ -10,6 +10,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	pkgtls "github.com/coredns/coredns/plugin/pkg/tls"
+	"wwwin-github.cisco.com/edge/optikon-dns/plugin/central"
 
 	"github.com/mholt/caddy"
 )
@@ -36,9 +37,13 @@ func setup(c *caddy.Controller) error {
 
 	// Add the plugin handler to the dnsserver.
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
+		oe.clientset, err = central.RegisterKubernetesClient()
 		oe.Next = next
 		return oe
 	})
+	if err != nil {
+		return err
+	}
 
 	// Register Prometheus metrics.
 	c.OnStartup(func() error {
@@ -56,7 +61,7 @@ func setup(c *caddy.Controller) error {
 func (oe *OptikonEdge) OnStartup() (err error) {
 	oe.startReadingServices()
 	for _, p := range oe.proxies {
-		p.start(oe.hcInterval)
+		p.start(oe.hcInterval, oe.svcPushInterval)
 		p.startPushingServices(oe.services)
 	}
 	return nil
@@ -66,7 +71,6 @@ func (oe *OptikonEdge) OnStartup() (err error) {
 func (oe *OptikonEdge) OnShutdown() error {
 	oe.stopReadingServices()
 	for _, p := range oe.proxies {
-		p.stopPushingServices()
 		p.close()
 	}
 	return nil
@@ -113,18 +117,20 @@ func parseOptikonEdge(c *caddy.Controller) (*OptikonEdge, error) {
 		oe.lat = parsedLat
 
 		// Parse the service read interval.
-		var svcReadIntervalSecs int
-		if !c.Args(&svcReadIntervalSecs) {
+		var svcReadIntervalSecsString string
+		if !c.Args(&svcReadIntervalSecsString) {
 			return oe, c.ArgErr()
 		}
-		oe.svcReadInterval = svcReadIntervalSecs * time.Second
+		svcReadIntervalSecs, err := strconv.Atoi(svcReadIntervalSecsString)
+		oe.svcReadInterval = time.Duration(svcReadIntervalSecs) * time.Second
 
 		// Parse the service push interval.
-		var svcPushIntervalSecs int
-		if !c.Args(&svcPushIntervalSecs) {
+		var svcPushIntervalSecsString string
+		if !c.Args(&svcPushIntervalSecsString) {
 			return oe, c.ArgErr()
 		}
-		oe.svcPushInterval = svcPushIntervalSecs * time.Second
+		svcPushIntervalSecs, err := strconv.Atoi(svcPushIntervalSecsString)
+		oe.svcPushInterval = time.Duration(svcPushIntervalSecs) * time.Second
 
 		if !c.Args(&oe.from) {
 			return oe, c.ArgErr()
