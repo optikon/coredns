@@ -34,6 +34,7 @@ func setup(c *caddy.Controller) error {
 	if oe.Len() > max {
 		return plugin.Error("optikon-edge", fmt.Errorf("more than %d TOs configured: %d", max, oe.Len()))
 	}
+	fmt.Printf("Parsed OptikonEdge with Parameters: IP=%s, Lon=%f, Lat=%f, svcReadInterval=%v, svcPushInterval=%v\n", oe.ip, oe.lon, oe.lat, oe.svcReadInterval, oe.svcPushInterval)
 
 	// Add the plugin handler to the dnsserver.
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
@@ -65,8 +66,8 @@ func (oe *OptikonEdge) OnStartup() (err error) {
 		Lat: oe.lat,
 	}
 	for _, p := range oe.proxies {
-		p.start(oe.hcInterval, oe.svcPushInterval)
-		p.startPushingServices(meta, oe.services)
+		p.start(oe.hcInterval)
+		p.startPushingServices(oe.svcPushInterval, meta, oe.services)
 	}
 	return nil
 }

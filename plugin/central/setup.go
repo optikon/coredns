@@ -1,6 +1,7 @@
 package central
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -26,6 +27,7 @@ func setup(c *caddy.Controller) error {
 	if err != nil {
 		return plugin.Error("optikon-central", err)
 	}
+	fmt.Printf("Parsed OptikonCentral with Parameters: IP=%s, Lon=%f, Lat=%f, svcReadInterval=%v\n", oc.ip, oc.lon, oc.lat, oc.svcReadInterval)
 
 	// Add the plugin handler to the dnsserver.
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {

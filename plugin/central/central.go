@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/pkg/up"
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
@@ -31,15 +30,14 @@ type OptikonCentral struct {
 	lon             float64
 	lat             float64
 	svcReadInterval time.Duration
-	svcReadProbe    *up.Probe
+	svcReadStopper  chan struct{}
 	server          *http.Server
 }
 
 // New returns a new OptikonCentral.
 func New() *OptikonCentral {
 	oc := &OptikonCentral{
-		table:        NewConcurrentTable(),
-		svcReadProbe: up.New(),
+		table: NewConcurrentTable(),
 	}
 	return oc
 }

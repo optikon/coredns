@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/pkg/up"
 	"github.com/coredns/coredns/request"
 	"k8s.io/client-go/kubernetes"
 	"wwwin-github.cisco.com/edge/optikon-dns/plugin/central"
@@ -46,9 +45,9 @@ type OptikonEdge struct {
 	lon float64
 	lat float64
 
-	services *ConcurrentStringSlice
+	services *ConcurrentStringSet
 
-	svcReadProbe    *up.Probe
+	svcReadStopper  chan struct{}
 	svcReadInterval time.Duration
 	svcPushInterval time.Duration
 }
@@ -56,14 +55,13 @@ type OptikonEdge struct {
 // New returns a new OptikonEdge.
 func New() *OptikonEdge {
 	oe := &OptikonEdge{
-		maxfails:     2,
-		tlsConfig:    new(tls.Config),
-		expire:       defaultExpire,
-		p:            new(random),
-		from:         ".",
-		hcInterval:   hcDuration,
-		services:     NewConcurrentStringSlice(),
-		svcReadProbe: up.New(),
+		maxfails:   2,
+		tlsConfig:  new(tls.Config),
+		expire:     defaultExpire,
+		p:          new(random),
+		from:       ".",
+		hcInterval: hcDuration,
+		services:   NewConcurrentStringSet(),
 	}
 	return oe
 }
@@ -71,7 +69,7 @@ func New() *OptikonEdge {
 // SetProxy appends p to the proxy list and starts healthchecking.
 func (oe *OptikonEdge) SetProxy(p *Proxy) {
 	oe.proxies = append(oe.proxies, p)
-	p.start(oe.hcInterval, oe.svcPushInterval)
+	p.start(oe.hcInterval)
 }
 
 // Len returns the number of configured proxies.
@@ -86,6 +84,31 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 	state := request.Request{W: w, Req: r}
 	if !oe.match(state) {
 		return plugin.NextOrFailure(oe.Name(), oe.Next, ctx, w, r)
+	}
+
+	// Parse the target domain out of the request (NOTE: This will always have
+	// a trailing dot.)
+	targetDomain := state.Name()
+
+	// If we're already running the service, return my IP.
+	if oe.services.Contains(targetDomain[:(len(targetDomain) - 1)]) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		ret.Authoritative, ret.RecursionAvailable, ret.Compress = true, true, true
+		var rr dns.RR
+		switch state.Family() {
+		case 1:
+			rr = new(dns.A)
+			rr.(*dns.A).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeA, Class: state.QClass()}
+			rr.(*dns.A).A = net.ParseIP(oe.ip).To4()
+		case 2:
+			rr = new(dns.AAAA)
+			rr.(*dns.AAAA).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeAAAA, Class: state.QClass()}
+			rr.(*dns.AAAA).AAAA = net.ParseIP(oe.ip)
+		}
+		ret.Answer = []dns.RR{rr}
+		w.WriteMsg(ret)
+		return 0, nil
 	}
 
 	fails := 0

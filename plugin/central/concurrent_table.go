@@ -1,6 +1,7 @@
 package central
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -37,6 +38,9 @@ func (ct *ConcurrentTable) Lookup(key string) ([]EdgeSite, bool) {
 
 // Update adds new entries to the table.
 func (ct *ConcurrentTable) Update(ip string, lon, lat float64, serviceDomains []string) {
+
+	// Print a log message.
+	fmt.Printf("Updating Table (IP: %s, Lon: %f, Lat: %f) with services: %+v (len: %d)\n", ip, lon, lat, serviceDomains, len(serviceDomains))
 
 	// Create a struct to represent the edge site.
 	myEdgeSite := EdgeSite{
@@ -78,5 +82,8 @@ func (ct *ConcurrentTable) Update(ip string, lon, lat float64, serviceDomains []
 	for _, entry := range entriesToDelete {
 		delete(ct.items, entry)
 	}
+
+	// Print the updated table.
+	fmt.Printf("Updated Table: %+v\n", ct.items)
 
 }

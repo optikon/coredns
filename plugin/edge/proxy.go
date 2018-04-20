@@ -3,7 +3,7 @@ package edge
 import (
 	"bytes"
 	"crypto/tls"
-	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"sync/atomic"
@@ -29,8 +29,8 @@ type Proxy struct {
 	fails uint32
 
 	// Daemon connection.
-	pushAddr  string
-	pushProbe *up.Probe
+	pushAddr    string
+	pushStopper chan struct{}
 }
 
 // NewProxy returns a new proxy.
@@ -46,7 +46,6 @@ func NewProxy(addr string, tlsConfig *tls.Config) *Proxy {
 		probe:     up.New(),
 		transport: newTransport(addr, tlsConfig),
 		pushAddr:  pAddr,
-		pushProbe: up.New(),
 	}
 	p.client = dnsClient(tlsConfig)
 	return p
@@ -94,43 +93,57 @@ func (p *Proxy) Down(maxfails uint32) bool {
 
 // close stops the health checking goroutine.
 func (p *Proxy) close() {
-	p.pushProbe.Stop()
+	close(p.pushStopper)
 	p.probe.Stop()
 	p.transport.Stop()
 }
 
 // start starts the proxy's healthchecking.
-func (p *Proxy) start(healthCheckDuration, servicePushDuration time.Duration) {
+func (p *Proxy) start(healthCheckDuration time.Duration) {
 	p.probe.Start(healthCheckDuration)
-	p.pushProbe.Start(servicePushDuration)
 }
 
 // Starts the process of pushing the list of services to central proxies.
-func (p *Proxy) startPushingServices(meta central.EdgeSite, update *ConcurrentStringSlice) {
-
-	// Packages services into JSON and posts to central proxy.
-	p.pushProbe.Do(func() error {
-		jsn, err := update.ToJSON(meta)
-		if err != nil {
-			return err
+func (p *Proxy) startPushingServices(servicePushDuration time.Duration, meta central.EdgeSite, update *ConcurrentStringSet) {
+	ticker := time.NewTicker(servicePushDuration)
+	p.pushStopper = make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				if update.Size() == 0 {
+					fmt.Println("INFO no running services to push to central")
+					continue
+				}
+				jsn, err := update.ToJSON(meta)
+				if err != nil {
+					fmt.Println("ERROR while marshalling JSON:", err)
+					continue
+				}
+				req, err := http.NewRequest("POST", p.pushAddr, bytes.NewBuffer(jsn))
+				if err != nil {
+					fmt.Println("ERROR while formulating request to central:", err)
+					continue
+				}
+				req.Header.Set("Content-Type", "application/json")
+				client := &http.Client{}
+				resp, err := client.Do(req)
+				if err != nil {
+					fmt.Println("ERROR while POSTing request to central:", err)
+					continue
+				}
+				if resp.StatusCode != 200 {
+					resp.Body.Close()
+					fmt.Println("ERROR: Received non-200 response from central:", resp.StatusCode)
+					continue
+				}
+				resp.Body.Close()
+			case <-p.pushStopper:
+				ticker.Stop()
+				return
+			}
 		}
-		req, err := http.NewRequest("POST", p.pushAddr, bytes.NewBuffer(jsn))
-		if err != nil {
-			return err
-		}
-		req.Header.Set("Content-Type", "application/json")
-
-		client := &http.Client{}
-		resp, err := client.Do(req)
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != 200 {
-			return errors.New("non-200 response from central")
-		}
-		return nil
-	})
+	}()
 }
 
 const (

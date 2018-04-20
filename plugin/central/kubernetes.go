@@ -2,18 +2,18 @@ package central
 
 import (
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/rest"
 )
 
 // RegisterKubernetesClient registers a client with the Kubernetes API.
 func RegisterKubernetesClient() (*kubernetes.Clientset, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", "/etc/kubernetes/admin.conf")
+	config, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, err
+		panic(err.Error())
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		panic(err.Error())
 	}
 	return clientset, nil
 }
