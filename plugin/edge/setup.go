@@ -45,7 +45,6 @@ func setup(c *caddy.Controller) error {
 		return err
 	}
 
-	// Register Prometheus metrics.
 	c.OnStartup(func() error {
 		return oe.OnStartup()
 	})
@@ -60,9 +59,14 @@ func setup(c *caddy.Controller) error {
 // OnStartup starts a goroutines for all proxies.
 func (oe *OptikonEdge) OnStartup() (err error) {
 	oe.startReadingServices()
+	meta := central.EdgeSite{
+		IP:  oe.ip,
+		Lon: oe.lon,
+		Lat: oe.lat,
+	}
 	for _, p := range oe.proxies {
 		p.start(oe.hcInterval, oe.svcPushInterval)
-		p.startPushingServices(oe.services)
+		p.startPushingServices(meta, oe.services)
 	}
 	return nil
 }
@@ -94,6 +98,11 @@ func parseOptikonEdge(c *caddy.Controller) (*OptikonEdge, error) {
 		}
 		i++
 
+		// Parse my IP address.
+		if !c.Args(&oe.ip) {
+			return oe, c.ArgErr()
+		}
+
 		// Parse the edge cluster's longitude value.
 		var lon string
 		if !c.Args(&lon) {
@@ -122,6 +131,9 @@ func parseOptikonEdge(c *caddy.Controller) (*OptikonEdge, error) {
 			return oe, c.ArgErr()
 		}
 		svcReadIntervalSecs, err := strconv.Atoi(svcReadIntervalSecsString)
+		if err != nil {
+			return oe, err
+		}
 		oe.svcReadInterval = time.Duration(svcReadIntervalSecs) * time.Second
 
 		// Parse the service push interval.
@@ -130,6 +142,9 @@ func parseOptikonEdge(c *caddy.Controller) (*OptikonEdge, error) {
 			return oe, c.ArgErr()
 		}
 		svcPushIntervalSecs, err := strconv.Atoi(svcPushIntervalSecsString)
+		if err != nil {
+			return oe, err
+		}
 		oe.svcPushInterval = time.Duration(svcPushIntervalSecs) * time.Second
 
 		if !c.Args(&oe.from) {

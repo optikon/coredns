@@ -42,6 +42,7 @@ type OptikonEdge struct {
 	Next      plugin.Handler
 	clientset *kubernetes.Clientset
 
+	ip  string
 	lon float64
 	lat float64
 
@@ -102,8 +103,6 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 			// select an upstream to connect to.
 			r := new(random)
 			proxy = r.List(oe.proxies)[0]
-
-			HealthcheckBrokenCount.Add(1)
 		}
 
 		if span != nil {

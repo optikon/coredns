@@ -1,4 +1,4 @@
-package edge
+package central
 
 import (
 	"k8s.io/client-go/kubernetes"

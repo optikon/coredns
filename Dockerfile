@@ -1,8 +1,15 @@
 # Start with a Golang-enabled base image.
 FROM golang:1.10.0 as builder
 
-# Fetch the CoreDNS repo.
-COPY vendor/* /go/src
+RUN go get github.com/coredns/coredns
+RUN go get github.com/opentracing/opentracing-go
+RUN go get k8s.io/client-go/...
+
+# # Copy in the vendor contents.
+# COPY vendor /go/src
+#
+# # Copy in the entire CoreDNS repo.
+# COPY vendor-coredns /go/src/github.com/coredns/coredns
 
 # Mount the central and edge plugins.
 COPY plugin/central /go/src/wwwin-github.cisco.com/edge/optikon-dns/plugin/central

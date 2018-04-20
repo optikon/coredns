@@ -95,7 +95,6 @@ Wait:
 
 			// Not conns were found. Connect to the upstream to create one.
 			t.conns[proto] = t.conns[proto][i:]
-			SocketGauge.WithLabelValues(t.addr).Set(float64(t.len()))
 
 			go func() {
 				if proto != "tcp-tls" {
@@ -109,8 +108,6 @@ Wait:
 			}()
 
 		case conn := <-t.yield:
-
-			SocketGauge.WithLabelValues(t.addr).Set(float64(t.len() + 1))
 
 			// no proto here, infer from config and conn
 			if _, ok := conn.c.Conn.(*net.UDPConn); ok {

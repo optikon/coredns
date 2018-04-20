@@ -1,7 +1,6 @@
 package edge
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/coredns/coredns/request"
@@ -11,7 +10,6 @@ import (
 )
 
 func (p *Proxy) connect(ctx context.Context, state request.Request, forceTCP, metric bool) (*dns.Msg, error) {
-	start := time.Now()
 
 	proto := state.Proto()
 	if forceTCP {
@@ -43,17 +41,6 @@ func (p *Proxy) connect(ctx context.Context, state request.Request, forceTCP, me
 	}
 
 	p.Yield(conn)
-
-	if metric {
-		rc, ok := dns.RcodeToString[ret.Rcode]
-		if !ok {
-			rc = strconv.Itoa(ret.Rcode)
-		}
-
-		RequestCount.WithLabelValues(p.addr).Add(1)
-		RcodeCount.WithLabelValues(rc, p.addr).Add(1)
-		RequestDuration.WithLabelValues(p.addr).Observe(time.Since(start).Seconds())
-	}
 
 	return ret, nil
 }

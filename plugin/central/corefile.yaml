@@ -8,7 +8,7 @@ data:
         kubernetes cluster.local {
            fallthrough
         }
-        optikon-central
+        optikon-central ${MY_IP} ${LON} ${LAT} ${SVC_READ_INTERVAL}
         proxy . 8.8.8.8:53
     }
 kind: ConfigMap

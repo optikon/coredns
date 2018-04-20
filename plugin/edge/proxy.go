@@ -1,11 +1,16 @@
 package edge
 
 import (
+	"bytes"
 	"crypto/tls"
+	"errors"
+	"net/http"
+	"regexp"
 	"sync/atomic"
 	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/up"
+	"wwwin-github.cisco.com/edge/optikon-dns/plugin/central"
 
 	"github.com/miekg/dns"
 )
@@ -24,16 +29,23 @@ type Proxy struct {
 	fails uint32
 
 	// Daemon connection.
+	pushAddr  string
 	pushProbe *up.Probe
 }
 
 // NewProxy returns a new proxy.
 func NewProxy(addr string, tlsConfig *tls.Config) *Proxy {
+	var pAddr string
+	ipRegexSubmatches := ipRegex.FindStringSubmatch(addr)
+	if len(ipRegexSubmatches) >= 2 {
+		pAddr = "http://" + ipRegexSubmatches[1] + ":9090"
+	}
 	p := &Proxy{
 		addr:      addr,
 		fails:     0,
 		probe:     up.New(),
 		transport: newTransport(addr, tlsConfig),
+		pushAddr:  pAddr,
 		pushProbe: up.New(),
 	}
 	p.client = dnsClient(tlsConfig)
@@ -94,17 +106,30 @@ func (p *Proxy) start(healthCheckDuration, servicePushDuration time.Duration) {
 }
 
 // Starts the process of pushing the list of services to central proxies.
-func (p *Proxy) startPushingServices(services *ConcurrentStringSlice) {
+func (p *Proxy) startPushingServices(meta central.EdgeSite, update *ConcurrentStringSlice) {
 
 	// Packages services into JSON and posts to central proxy.
 	p.pushProbe.Do(func() error {
-		json, err := services.ToJSON()
+		jsn, err := update.ToJSON(meta)
 		if err != nil {
 			return err
 		}
-		//
-		// TODO: FINISH!!!
-		//
+		req, err := http.NewRequest("POST", p.pushAddr, bytes.NewBuffer(jsn))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			return errors.New("non-200 response from central")
+		}
+		return nil
 	})
 }
 
@@ -112,4 +137,8 @@ const (
 	dialTimeout = 4 * time.Second
 	timeout     = 2 * time.Second
 	hcDuration  = 500 * time.Millisecond
+)
+
+var (
+	ipRegex = regexp.MustCompile(`^(.*):\d+$`)
 )

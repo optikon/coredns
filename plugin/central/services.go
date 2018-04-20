@@ -1,4 +1,4 @@
-package edge
+package central
 
 import (
 	"k8s.io/api/core/v1"
@@ -6,14 +6,14 @@ import (
 )
 
 // Starts the process of reading Kubernetes services every read interval.
-func (oe *OptikonEdge) startReadingServices() {
+func (oc *OptikonCentral) startReadingServices() {
 
 	// Starts a probe to call the read function every time interval.
-	oe.svcReadProbe.Start(oe.svcReadInterval)
+	oc.svcReadProbe.Start(oc.svcReadInterval)
 
 	// Register the probe function to read and update the service list.
-	oe.svcReadProbe.Do(func() error {
-		services, err := oe.clientset.Core().Services("").List(metaV1.ListOptions{})
+	oc.svcReadProbe.Do(func() error {
+		services, err := oc.clientset.Core().Services("").List(metaV1.ListOptions{})
 		if err != nil {
 			return err
 		}
@@ -21,7 +21,7 @@ func (oe *OptikonEdge) startReadingServices() {
 		for i, service := range services.Items {
 			serviceDomains[i] = generateServiceDNS(&service)
 		}
-		oe.services.Overwrite(serviceDomains)
+		oc.table.Update(oc.ip, oc.lon, oc.lat, serviceDomains)
 		return nil
 	})
 }
@@ -32,6 +32,6 @@ func generateServiceDNS(svc *v1.Service) string {
 }
 
 // Stops reading Kubernetes services into local state.
-func (oe *OptikonEdge) stopReadingServices() {
-	oe.svcReadProbe.Stop()
+func (oc *OptikonCentral) stopReadingServices() {
+	oc.svcReadProbe.Stop()
 }

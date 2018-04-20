@@ -13,7 +13,6 @@ import (
 func (p *Proxy) Check() error {
 	err := p.send()
 	if err != nil {
-		HealthcheckFailureCount.WithLabelValues(p.addr).Add(1)
 		atomic.AddUint32(&p.fails, 1)
 		return err
 	}
