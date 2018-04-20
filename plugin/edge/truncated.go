@@ -1,3 +1,5 @@
+// NOTE: This file adopted from the existing `forward` plugin for CoreDNS.
+
 package edge
 
 import "github.com/miekg/dns"

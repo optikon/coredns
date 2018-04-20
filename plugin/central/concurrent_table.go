@@ -40,7 +40,7 @@ func (ct *ConcurrentTable) Lookup(key string) ([]EdgeSite, bool) {
 func (ct *ConcurrentTable) Update(ip string, lon, lat float64, serviceDomains []string) {
 
 	// Print a log message.
-	fmt.Printf("Updating Table (IP: %s, Lon: %f, Lat: %f) with services: %+v (len: %d)\n", ip, lon, lat, serviceDomains, len(serviceDomains))
+	fmt.Printf("==========\nUpdating Table (IP: %s, Lon: %f, Lat: %f) with services: %+v (len: %d)\n==========\n", ip, lon, lat, serviceDomains, len(serviceDomains))
 
 	// Create a struct to represent the edge site.
 	myEdgeSite := EdgeSite{
@@ -66,7 +66,8 @@ func (ct *ConcurrentTable) Update(ip string, lon, lat float64, serviceDomains []
 		}
 	}
 
-	// Loop over the existing services and remove and that are no longer running.
+	// Loop over the existing services and remove any that are no longer running.
+	// NOTE: We need to remove empty entries _after_ iterating over the map.
 	entriesToDelete := make([]string, 0)
 	for serviceDomain, edgeSiteSet := range ct.items {
 		if serviceDomainSet[serviceDomain] {
@@ -84,6 +85,6 @@ func (ct *ConcurrentTable) Update(ip string, lon, lat float64, serviceDomains []
 	}
 
 	// Print the updated table.
-	fmt.Printf("Updated Table: %+v\n", ct.items)
+	fmt.Printf("----------\nUpdated Table: %+v\n----------\n", ct.items)
 
 }

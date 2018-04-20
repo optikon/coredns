@@ -6,12 +6,14 @@
 
 ## Description
 
-[FINISH]
+This plugin is responsible for managing a table that maps external service domain names to the list of edge sites running that service. When proxied requests come in from edge sites, this plugin will return the list of services running the request service as a DNS message.
+
+This plugin also runs a daemon process to listen for incoming edge cluster POST requests, containing the list of Kubernetes services they are currently running. This information is then used to update the internal Table used to maintain the global state across all clusters.
 
 ## Syntax
 
 ~~~ txt
-optikon-central
+optikon-central ${MY_IP} ${LON} ${LAT} ${SVC_READ_INTERVAL}
 ~~~
 
 ## Examples
@@ -23,11 +25,10 @@ An example Corefile might look like
     errors
     health
     log
-    kubernetes cluster.local in-addr.arpa ip6.arpa {
-       pods insecure
-       upstream
-       fallthrough in-addr.arpa ip6.arpa
+    kubernetes cluster.local {
+       fallthrough
     }
-    optikon-central
+    optikon-central 172.16.7.101 55.643 64.264 3
+    proxy . 8.8.8.8:53
 }
 ~~~

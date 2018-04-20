@@ -53,6 +53,7 @@ func (oc *OptikonCentral) ServeDNS(ctx context.Context, w dns.ResponseWriter, r 
 	targetDomain := state.Name()
 
 	// Determine if there is an entry for the DNS name we're looking for.
+	// If not, fall through to the proxy plugin.
 	edgeSites, found := oc.table.Lookup(targetDomain[:(len(targetDomain) - 1)])
 	if !found || len(edgeSites) == 0 {
 		return plugin.NextOrFailure(oc.Name(), oc.Next, ctx, w, r)

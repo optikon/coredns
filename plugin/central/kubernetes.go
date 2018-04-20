@@ -5,7 +5,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// RegisterKubernetesClient registers a client with the Kubernetes API.
+// RegisterKubernetesClient registers an in-cluster client with the Kubernetes API.
 func RegisterKubernetesClient() (*kubernetes.Clientset, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {

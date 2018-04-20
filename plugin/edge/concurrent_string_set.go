@@ -29,7 +29,7 @@ func (cs *ConcurrentStringSet) Overwrite(newItems []string) {
 	for _, item := range newItems {
 		cs.items[item] = true
 	}
-	fmt.Printf("Updated service list: %+v\n", cs.items)
+	fmt.Printf("==========\nUpdated service list: %+v\n==========\n", cs.items)
 }
 
 // Contains check whether or not a service is contained in the set.
@@ -42,14 +42,14 @@ func (cs *ConcurrentStringSet) Contains(service string) bool {
 
 // ToJSON converts the current state of the slice into JSON bytes.
 func (cs *ConcurrentStringSet) ToJSON(meta central.EdgeSite) ([]byte, error) {
+	cs.Lock()
+	defer cs.Unlock()
 	serviceList := make([]string, len(cs.items))
 	i := 0
 	for service := range cs.items {
 		serviceList[i] = service
 		i++
 	}
-	cs.Lock()
-	defer cs.Unlock()
 	update := central.TableUpdate{
 		Meta:     meta,
 		Services: serviceList,
