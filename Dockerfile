@@ -2,8 +2,7 @@
 FROM golang:1.10.0 as builder
 
 # Fetch the CoreDNS repo.
-RUN go get github.com/coredns/coredns
-RUN go get github.com/opentracing/opentracing-go
+COPY vendor /go/src
 
 # Mount the central and edge plugins.
 COPY plugin/central /go/src/wwwin-github.cisco.com/edge/optikon-dns/plugin/central
