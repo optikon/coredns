@@ -56,7 +56,7 @@ func (oc *OptikonCentral) OnStartup() (err error) {
 
 // OnShutdown stops all async processes.
 func (oc *OptikonCentral) OnShutdown() error {
-	oc.startReadingServices()
+	oc.stopReadingServices()
 	oc.stopListeningForTableUpdates()
 	return nil
 }
