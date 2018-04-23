@@ -13,7 +13,7 @@ This plugin also runs a daemon process to listen for incoming edge cluster POST 
 ## Syntax
 
 ~~~ txt
-optikon-central ${MY_IP} ${LON} ${LAT} ${SVC_READ_INTERVAL}
+optikon-central [MY IP] [LONGITUDE] [LATITUDE] [SERVICE READ INVERVAL IN SECS]
 ~~~
 
 ## Examples

@@ -13,7 +13,7 @@ This plugin also perform a routine daemon process that calls the Kubernetes clus
 ## Syntax
 
 ~~~ txt
-optikon-edge ${MY_IP} ${LON} ${LAT} ${SVC_READ_INTERVAL} ${SVC_PUSH_INTERVAL} . ${CENTRAL_IP}:53
+optikon-edge [MY IP] [LONGITUDE] [LATITUDE] [SERVICE READ INVERVAL IN SECS] [SERVICE PUSH INTERVAL IN SECS] . [CENTRAL CLUSTER DNS ADDRESS]
 ~~~
 
 ## Examples
