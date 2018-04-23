@@ -6,23 +6,15 @@
 
 ## Description
 
-[FINISH]
+This plugin is responsible for resolving incoming client requests by either returning its own IP if the service is already running on this cluster; otherwise it forwards the request up to its (possibly many) central proxies, receives a list of all the clusters running the requested service, performs a proximity calculation, and returns the IP of the closest edge cluster serving the request service.
 
 ## Syntax
 
 ~~~ txt
-optikon-edge
+optikon-edge ${LON} ${LAT} . ${CENTRAL_IP}:53
 ~~~
 
 ## Examples
-
-The optikon-edge Corefile entry requires three arguments
-
-~~~ corefile
-. {
-    optikon-edge [CENTRAL CLUSTER IP] [MY LONGITUDE] [MY LATITUDE]
-}
-~~~
 
 An example Corefile might look like
 
@@ -30,14 +22,12 @@ An example Corefile might look like
 .:53 {
     errors
     health
-    kubernetes cluster.local in-addr.arpa ip6.arpa {
-       pods insecure
-       upstream
-       fallthrough in-addr.arpa ip6.arpa
+    log
+    cache 30
+    kubernetes cluster.local {
+       fallthrough
     }
-    prometheus :9153
-    proxy . /etc/resolv.conf
-    cache 3600
-    optikon-edge 172.16.7.101 55.680770 12.543006
+    optikon-edge 43.264 36.694 . 172.16.7.101:53
+    proxy . 8.8.8.8:53
 }
 ~~~

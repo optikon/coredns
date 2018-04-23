@@ -6,7 +6,7 @@
 
 ## Description
 
-[FINISH]
+This plugin is responsible for managing a table that maps external service domain names to the list of edge sites running that service. When proxied requests come in from edge sites, this plugin will return the list of services running the request service as a DNS message.
 
 ## Syntax
 
@@ -23,11 +23,10 @@ An example Corefile might look like
     errors
     health
     log
-    kubernetes cluster.local in-addr.arpa ip6.arpa {
-       pods insecure
-       upstream
-       fallthrough in-addr.arpa ip6.arpa
+    kubernetes cluster.local {
+       fallthrough
     }
     optikon-central
+    proxy . 8.8.8.8:53
 }
 ~~~

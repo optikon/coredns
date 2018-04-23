@@ -35,6 +35,7 @@ func New() *OptikonCentral {
 	return oc
 }
 
+// Populates the Table with hardcoded values. TODO: Automate this.
 func (oc *OptikonCentral) populateTable() {
 
 	oc.table["kubernetes.default.svc.cluster.external"] = []EdgeSite{

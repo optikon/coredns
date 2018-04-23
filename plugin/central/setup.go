@@ -33,8 +33,6 @@ func setup(c *caddy.Controller) error {
 		return oc
 	})
 
-	// TODO: START ROUTINE TO LISTEN FOR TABLE UPDATES?
-
 	return nil
 }
 
