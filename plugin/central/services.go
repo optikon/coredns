@@ -1,6 +1,7 @@
 package central
 
 import (
+	"fmt"
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -17,6 +18,7 @@ func (oc *OptikonCentral) startReadingServices() {
 			case <-ticker.C:
 				services, err := oc.clientset.CoreV1().Services("").List(metaV1.ListOptions{})
 				if err != nil {
+					fmt.Println("ERROR while reading services locally:", err)
 					continue
 				}
 				serviceDomains := make([]string, len(services.Items))
@@ -34,7 +36,7 @@ func (oc *OptikonCentral) startReadingServices() {
 
 // Generates a services DNS that looks like my-svc.my-namespace.svc.cluster.external
 func generateServiceDNS(svc *v1.Service) string {
-	return svc.GetName() + "." + svc.GetNamespace() + ".svc.cluster.external"
+	return fmt.Sprintf("%s.%s.svc.cluster.external", svc.GetName(), svc.GetNamespace())
 }
 
 // Stops reading Kubernetes services into local state.

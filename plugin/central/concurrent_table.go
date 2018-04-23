@@ -33,6 +33,9 @@ func (ct *ConcurrentTable) Lookup(key string) ([]EdgeSite, bool) {
 	ct.Lock()
 	defer ct.Unlock()
 	set, found := ct.items[key]
+	if !found {
+		return []EdgeSite{}, found
+	}
 	return set.ToSlice(), found
 }
 
