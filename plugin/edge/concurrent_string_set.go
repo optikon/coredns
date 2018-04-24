@@ -2,26 +2,23 @@ package edge
 
 import (
 	"encoding/json"
-	"fmt"
 	"sync"
-
-	"wwwin-github.cisco.com/edge/optikon-dns/plugin/central"
 )
 
-// ConcurrentStringSet type that can be safely shared between goroutines.
+// ConcurrentStringSet is a set of strings that can be safely shared between goroutines.
 type ConcurrentStringSet struct {
 	sync.RWMutex
 	items map[string]bool
 }
 
-// NewConcurrentStringSet creates a new concurrent slice of strings.
+// NewConcurrentStringSet creates a new concurrent set of strings.
 func NewConcurrentStringSet() *ConcurrentStringSet {
 	return &ConcurrentStringSet{
 		items: make(map[string]bool),
 	}
 }
 
-// Overwrite replaces all entries of the slice with new ones.
+// Overwrite replaces all entries of the set with new ones.
 func (cs *ConcurrentStringSet) Overwrite(newItems []string) {
 	cs.Lock()
 	defer cs.Unlock()
@@ -29,35 +26,35 @@ func (cs *ConcurrentStringSet) Overwrite(newItems []string) {
 	for _, item := range newItems {
 		cs.items[item] = true
 	}
-	fmt.Printf("==========\nUpdated service list: %+v\n==========\n", cs.items)
 }
 
-// Contains check whether or not a service is contained in the set.
-func (cs *ConcurrentStringSet) Contains(service string) bool {
+// Contains checks whether or not an item is contained in the set.
+func (cs *ConcurrentStringSet) Contains(item string) bool {
 	cs.Lock()
 	defer cs.Unlock()
-	_, found := cs.items[service]
+	_, found := cs.items[item]
 	return found
 }
 
-// ToJSON converts the current state of the slice into JSON bytes.
-func (cs *ConcurrentStringSet) ToJSON(meta central.EdgeSite) ([]byte, error) {
+// ToJSON converts the current state of the set into JSON.
+// TODO: Move this out of here.
+func (cs *ConcurrentStringSet) ToJSON(meta EdgeSite) ([]byte, error) {
 	cs.Lock()
 	defer cs.Unlock()
-	serviceList := make([]string, len(cs.items))
+	itemList := make([]string, len(cs.items))
 	i := 0
-	for service := range cs.items {
-		serviceList[i] = service
+	for item := range cs.items {
+		itemList[i] = item
 		i++
 	}
-	update := central.TableUpdate{
+	update := TableUpdate{
 		Meta:     meta,
-		Services: serviceList,
+		Services: itemList,
 	}
 	return json.Marshal(update)
 }
 
-// Size returns the number of elements in the slice.
+// Size returns the number of elements in the set.
 func (cs *ConcurrentStringSet) Size() int {
 	cs.Lock()
 	defer cs.Unlock()

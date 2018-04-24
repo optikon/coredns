@@ -7,108 +7,149 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
-	"k8s.io/client-go/kubernetes"
-	"wwwin-github.cisco.com/edge/optikon-dns/plugin/central"
-
 	"github.com/miekg/dns"
-	ot "github.com/opentracing/opentracing-go"
 	"golang.org/x/net/context"
+	"k8s.io/client-go/kubernetes"
 )
 
-// OptikonEdge represents a plugin instance that can proxy requests to another (DNS) server. It has a list
-// of proxies each representing one upstream proxy.
-type OptikonEdge struct {
-	proxies    []*Proxy
-	p          Policy
-	hcInterval time.Duration
+// Edge encapsulates all edge plugin state.
+type Edge struct {
 
-	from    string
-	ignored []string
+	// Next is a reference to the next plugin in the CoreDNS plugin chain.
+	Next plugin.Handler
 
+	// Table stores the service->[]edgesite mappings for this and all
+	// downstream edge sites.
+	table *ConcurrentTable
+
+	// Clientset is a reference to in-cluster Kubernetes API.
+	clientset *kubernetes.Clientset
+
+	// IP is the public IP address of this cluster.
+	ip string
+
+	// The geo coordinates of this cluster.
+	geoCoords *Point
+
+	// The interval for reading and pushing locally running Kubernetes services.
+	svcReadInterval time.Duration
+	svcPushInterval time.Duration
+
+	// A channel for halting the service-reading process.
+	svcReadChan chan struct{}
+
+	// A server for receiving table updates from downstream edge sites.
+	server *http.Server
+
+	// The set of services currently running at this edge site.
+	services *ConcurrentStringSet
+
+	// TODO: Clean.
+	proxies       []*Proxy
+	p             Policy
+	hcInterval    time.Duration
+	from          string
+	ignored       []string
 	tlsConfig     *tls.Config
 	tlsServerName string
 	maxfails      uint32
 	expire        time.Duration
-
-	forceTCP bool // also here for testing
-
-	Next      plugin.Handler
-	clientset *kubernetes.Clientset
-
-	ip  string
-	lon float64
-	lat float64
-
-	services *ConcurrentStringSet
-
-	svcReadStopper  chan struct{}
-	svcReadInterval time.Duration
-	svcPushInterval time.Duration
+	forceTCP      bool
 }
 
-// New returns a new OptikonEdge.
-func New() *OptikonEdge {
-	oe := &OptikonEdge{
+// New returns a new Edge instance.
+func New() *Edge {
+	return &Edge{
+		// TODO: CLEAN
 		maxfails:   2,
 		tlsConfig:  new(tls.Config),
 		expire:     defaultExpire,
 		p:          new(random),
 		from:       ".",
 		hcInterval: hcDuration,
+		table:      NewConcurrentTable(),
 		services:   NewConcurrentStringSet(),
 	}
-	return oe
-}
-
-// SetProxy appends p to the proxy list and starts healthchecking.
-func (oe *OptikonEdge) SetProxy(p *Proxy) {
-	oe.proxies = append(oe.proxies, p)
-	p.start(oe.hcInterval)
 }
 
 // Len returns the number of configured proxies.
-func (oe *OptikonEdge) Len() int { return len(oe.proxies) }
+// TODO: Clean.
+func (e *Edge) Len() int { return len(e.proxies) }
 
-// Name implements plugin.Handler.
-func (oe *OptikonEdge) Name() string { return "optikon-edge" }
+// Name implements the plugin.Handler interface.
+func (e *Edge) Name() string { return pluginName }
 
-// ServeDNS implements plugin.Handler.
-func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+// ServeDNS implements the plugin.Handler interface.
+func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
+	// Encapsolate the state of the request and response.
 	state := request.Request{W: w, Req: r}
-	if !oe.match(state) {
-		return plugin.NextOrFailure(oe.Name(), oe.Next, ctx, w, r)
-	}
+
+	// Declare the response we want to send back.
+	res := new(dns.Msg)
+
+	// Parse out the LOC field from the request, if one exists.
+	loc, locFound := parseLoc(r.Extra)
 
 	// Parse the target domain out of the request (NOTE: This will always have
 	// a trailing dot.)
-	targetDomain := state.Name()
+	requestedService := state.Name().TrimTrailingDot()
 
-	// If we're already running the service, return my IP.
-	if oe.services.Contains(targetDomain[:(len(targetDomain) - 1)]) {
-		ret := new(dns.Msg)
-		ret.SetReply(r)
-		ret.Authoritative, ret.RecursionAvailable, ret.Compress = true, true, true
-		var rr dns.RR
-		switch state.Family() {
-		case 1:
-			rr = new(dns.A)
-			rr.(*dns.A).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeA, Class: state.QClass()}
-			rr.(*dns.A).A = net.ParseIP(oe.ip).To4()
-		case 2:
-			rr = new(dns.AAAA)
-			rr.(*dns.AAAA).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeAAAA, Class: state.QClass()}
-			rr.(*dns.AAAA).AAAA = net.ParseIP(oe.ip)
+	//
+	// TODO: Determine if the request has an Extra LOC field. If it does, then
+	// return the IP of the site running the service closest to LOC geo coords.
+	//
+	// IF there's no LOC field, this is a client request, in which case, check
+	// if the service is running locally. If it is, return my ip. If it isn't,
+	// Determine the IP of the site running the service closest to ME, using my
+	// local table.
+	//
+	// If the service can't be found in my table, forward the request to all
+	// my proxies, and send my LOC as the Extra field. Whatever response I get
+	// back, return it to the client, and hopefully the cache plugin will cache
+	// the reply.
+	//
+
+	// Determine if the requested service is running locally and write a reply
+	// with my ip if it is.
+	if !locFound && e.services.Contains(requestedService) {
+		writeAuthoritativeResponse(res, &state, o.ip)
+		return dns.RcodeSuccess, nil
+	}
+
+	// Determine if there is another edge site that I know of that is running
+	// the requested service. If there is, redirect to the closest.
+	edgeSites, entryFound := e.table.Lookup(requestedService)
+	if entryFound && len(edgeSites) > 0 {
+		var closest string
+		if locFound {
+			closest = edgeSites.FindClosestToPoint(loc)
+		} else {
+			closest = edgeSites.FindClosestToPoint(o.geoCoords)
 		}
-		ret.Answer = []dns.RR{rr}
-		w.WriteMsg(ret)
-		return 0, nil
+		writeAuthoritativeResponse(res, &state, closest)
+		return dns.RcodeSuccess, nil
+	}
+
+	//
+	// FORWARD REQUEST.
+	// TODO: CLEAN
+	//
+	// TODO: MAKE SURE THIS IS OKAY WITH HAVING NO UPSTREAMS.
+	// If there are no upstreams, fall through to proxy plugin.
+	// If there are upstreams, forward to them.
+	//
+
+	if !e.match(state) {
+		// TODO: Is this right?
+		return plugin.NextOrFailure(e.Name(), e.Next, ctx, w, r)
 	}
 
 	fails := 0
@@ -116,16 +157,16 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 	var upstreamErr error
 	span = ot.SpanFromContext(ctx)
 
-	for _, proxy := range oe.list() {
-		if proxy.Down(oe.maxfails) {
+	for _, proxy := range e.list() {
+		if proxy.Down(e.maxfails) {
 			fails++
-			if fails < len(oe.proxies) {
+			if fails < len(e.proxies) {
 				continue
 			}
 			// All upstream proxies are dead, assume healtcheck is completely broken and randomly
 			// select an upstream to connect to.
 			r := new(random)
-			proxy = r.List(oe.proxies)[0]
+			proxy = r.List(e.proxies)[0]
 		}
 
 		if span != nil {
@@ -139,7 +180,7 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 		)
 		stop := false
 		for {
-			ret, err = proxy.connect(ctx, state, oe.forceTCP, true)
+			ret, err = proxy.connect(ctx, state, e.forceTCP, true)
 			if err != nil && err == io.EOF && !stop { // Remote side closed conn, can only happen with TCP.
 				stop = true
 				continue
@@ -156,11 +197,11 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 
 		if err != nil {
 			// Kick off health check to see if *our* upstream is broken.
-			if oe.maxfails != 0 {
+			if e.maxfails != 0 {
 				proxy.Healthcheck()
 			}
 
-			if fails < len(oe.proxies) {
+			if fails < len(e.proxies) {
 				continue
 			}
 			break
@@ -198,7 +239,7 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 		if err != nil {
 			return dns.RcodeServerFailure, errTableParseFailure
 		}
-		var edgeSites []central.EdgeSite
+		var edgeSites []EdgeSite
 		if err := json.Unmarshal([]byte(edgeSiteStr), &edgeSites); err != nil {
 			return dns.RcodeServerFailure, errTableParseFailure
 		}
@@ -208,14 +249,14 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 
 		// If the list is empty, call the next plugin (proxy).
 		if len(edgeSites) == 0 {
-			return plugin.NextOrFailure(oe.Name(), oe.Next, ctx, w, r)
+			return plugin.NextOrFailure(e.Name(), e.Next, ctx, w, r)
 		}
 
 		// Compute the distance to the first edge site.
 		closest := edgeSites[0].IP
-		minDist := Distance(oe.lat, oe.lon, edgeSites[0].Lat, edgeSites[0].Lon)
+		minDist := Distance(e.lat, e.lon, edgeSites[0].Lat, edgeSites[0].Lon)
 		for _, edgeSite := range edgeSites {
-			dist := Distance(oe.lat, oe.lon, edgeSite.Lat, edgeSite.Lon)
+			dist := Distance(e.lat, e.lon, edgeSite.Lat, edgeSite.Lon)
 			if dist < minDist {
 				minDist = dist
 				closest = edgeSite.IP
@@ -249,22 +290,81 @@ func (oe *OptikonEdge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 	return dns.RcodeServerFailure, errNoHealthy
 }
 
-func (oe *OptikonEdge) match(state request.Request) bool {
-	from := oe.from
+// Write the given IP address as an Authoritative Answer to the request.
+func writeAuthoritativeResponse(res *dns.Msg, state *request.Request, string ip) {
 
-	if !plugin.Name(from).Matches(state.Name()) || !oe.isAllowedDomain(state.Name()) {
+	// Set the reply to the given request.
+	res.SetReply(state.Req)
+
+	// Make the answer Authoritative and compressed.
+	res.Authoritative, res.Compress = true, true
+
+	// Add the IP address to the Answer field.
+	var rr dns.RR
+	switch state.Family() {
+	case 1:
+		rr = new(dns.A)
+		rr.(*dns.A).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeA, Class: state.QClass()}
+		rr.(*dns.A).A = net.ParseIP(ip).To4()
+	case 2:
+		rr = new(dns.AAAA)
+		rr.(*dns.AAAA).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeAAAA, Class: state.QClass()}
+		rr.(*dns.AAAA).AAAA = net.ParseIP(ip)
+	}
+	res.Answer = []dns.RR{rr}
+
+	// Write the message.
+	state.W.WriteMsg(res)
+}
+
+func (e *Edge) checkRunningLocally(w dns.ResponseWriter, r *dns.Msg) (int, error, bool) {
+
+	// Encapsolate the state of the request and response.
+	state := request.Request{W: w, Req: r}
+
+	// Parse the target domain out of the request (NOTE: This will always have
+	// a trailing dot.)
+	targetDomain := state.Name()
+
+	// If we're already running the service, return my IP.
+	if e.services.Contains(targetDomain[:(len(targetDomain) - 1)]) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		ret.Authoritative, ret.RecursionAvailable, ret.Compress = true, true, true
+		var rr dns.RR
+		switch state.Family() {
+		case 1:
+			rr = new(dns.A)
+			rr.(*dns.A).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeA, Class: state.QClass()}
+			rr.(*dns.A).A = net.ParseIP(e.ip).To4()
+		case 2:
+			rr = new(dns.AAAA)
+			rr.(*dns.AAAA).Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeAAAA, Class: state.QClass()}
+			rr.(*dns.AAAA).AAAA = net.ParseIP(e.ip)
+		}
+		ret.Answer = []dns.RR{rr}
+		w.WriteMsg(ret)
+		return 0, nil
+	}
+
+}
+
+func (e *Edge) match(state request.Request) bool {
+	from := e.from
+
+	if !plugin.Name(from).Matches(state.Name()) || !e.isAllowedDomain(state.Name()) {
 		return false
 	}
 
 	return true
 }
 
-func (oe *OptikonEdge) isAllowedDomain(name string) bool {
-	if dns.Name(name) == dns.Name(oe.from) {
+func (e *Edge) isAllowedDomain(name string) bool {
+	if dns.Name(name) == dns.Name(e.from) {
 		return true
 	}
 
-	for _, ignore := range oe.ignored {
+	for _, ignore := range e.ignored {
 		if plugin.Name(ignore).Matches(name) {
 			return false
 		}
@@ -272,14 +372,14 @@ func (oe *OptikonEdge) isAllowedDomain(name string) bool {
 	return true
 }
 
-// List returns a set of proxies to be used for this client depending on the policy in oe.
-func (oe *OptikonEdge) list() []*Proxy { return oe.p.List(oe.proxies) }
+// List returns a set of proxies to be used for this client depending on the policy in e.
+func (e *Edge) list() []*Proxy { return e.p.List(e.proxies) }
 
 var (
 	errInvalidDomain         = errors.New("invalid domain for forward")
 	errNoHealthy             = errors.New("no healthy proxies")
-	errNoOptikonEdge         = errors.New("no optikon-edge defined")
-	errTableParseFailure     = errors.New("unable to parse Table returned from central")
+	errNoEdge                = errors.New(fmt.Springf("no %s defined", pluginName))
+	errTableParseFailure     = errors.New("unable to parse Table returned from upstream")
 	errFindingClosestCluster = errors.New("unable to compute closest edge cluster")
 )
 
@@ -294,3 +394,6 @@ const (
 var (
 	edgeSiteRegex = regexp.MustCompile(`^.*\t0\tIN\tTXT\t\"(\[.*\])\"$`)
 )
+
+// The name of the plugin, as seen by CoreDNS.
+const pluginName = "edge"

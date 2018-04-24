@@ -40,7 +40,7 @@ func NewProxy(addr string, tlsConfig *tls.Config) *Proxy {
 	var pAddr string
 	ipRegexSubmatches := ipRegex.FindStringSubmatch(addr)
 	if len(ipRegexSubmatches) >= 2 {
-		pAddr = "http://" + ipRegexSubmatches[1] + ":8053"
+		pAddr = "http://" + ipRegexSubmatches[1] + ":9090"
 	}
 	p := &Proxy{
 		addr:      addr,
