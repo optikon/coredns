@@ -14,7 +14,7 @@ type ServiceTable map[ServiceDNS]Set
 // ServiceTableUpdate encapsulates all the information sent in a table update
 // from an edge site.
 type ServiceTableUpdate struct {
-	Meta     EdgeSite `json:"meta"`
+	Meta     Site `json:"meta"`
 	Services Set      `json:"services"`
 }
 
@@ -43,7 +43,7 @@ func (cst *ConcurrentServiceTable) Lookup(svc ServiceDNS) (Set, bool) {
 func (cst *ConcurrentServiceTable) Update(ip net.IP, geoCoords *Point, serviceNames Set) {
 
 	// Create a struct to represent the edge site.
-	myEdgeSite := EdgeSite{
+	mySite := Site{
 		IP:        ip,
 		GeoCoords: geoCoords,
 	}
@@ -56,10 +56,10 @@ func (cst *ConcurrentServiceTable) Update(ip net.IP, geoCoords *Point, serviceNa
 	for val := range serviceNames {
 		serviceName := val.(ServiceDNS)
 		if edgeSites, found := cst.table[serviceName]; found {
-			edgeSites.Add(myEdgeSite)
+			edgeSites.Add(mySite)
 		} else {
 			newSet := NewSet()
-			newSet.Add(myEdgeSite)
+			newSet.Add(mySite)
 			cst.table[serviceName] = newSet
 		}
 	}
@@ -71,7 +71,7 @@ func (cst *ConcurrentServiceTable) Update(ip net.IP, geoCoords *Point, serviceNa
 		if serviceNames.Contains(serviceName) {
 			continue
 		}
-		edgeSiteSet.Remove(myEdgeSite)
+		edgeSiteSet.Remove(mySite)
 		if edgeSiteSet.Len() == 0 {
 			entriesToDelete = append(entriesToDelete, serviceName)
 		}

@@ -117,7 +117,7 @@ func newPushAddr(host string) string {
 }
 
 // Starts the process of pushing the list of services to upstream proxies.
-func (p *Proxy) startPushingServices(servicePushDuration time.Duration, meta EdgeSite, update *ConcurrentSet) {
+func (p *Proxy) startPushingServices(servicePushDuration time.Duration, meta Site, update *ConcurrentSet) {
 	ticker := time.NewTicker(servicePushDuration)
 	p.pushChan = make(chan struct{})
 	go func() {
@@ -160,7 +160,7 @@ func (p *Proxy) startPushingServices(servicePushDuration time.Duration, meta Edg
 }
 
 // Converts the current state of the set into a JSON ServiceTableUpdate.
-func convertToServiceTableUpdate(services *ConcurrentSet, meta EdgeSite) ([]byte, error) {
+func convertToServiceTableUpdate(services *ConcurrentSet, meta Site) ([]byte, error) {
 	services.Lock()
 	defer services.Unlock()
 	update := ServiceTableUpdate{

@@ -77,7 +77,7 @@ func setup(c *caddy.Controller) error {
 func (e *Edge) OnStartup() (err error) {
 	e.startReadingServices()
 	e.startListeningForTableUpdates()
-	meta := EdgeSite{
+	meta := Site{
 		IP:        e.ip,
 		GeoCoords: e.geoCoords,
 	}

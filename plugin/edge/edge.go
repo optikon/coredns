@@ -24,8 +24,8 @@ const (
 	maxUpstreams            = 15
 )
 
-// EdgeSite is a wrapper for all information needed about edge sites.
-type EdgeSite struct {
+// Site is a wrapper for all information needed about edge sites.
+type Site struct {
 	IP        net.IP `json:"ip"`
 	GeoCoords *Point `json:"coords"`
 }
@@ -296,7 +296,7 @@ func findClosestToPoint(edgeSiteSet Set, p *Point) net.IP {
 	var minDist float64
 	first := true
 	for val := range edgeSiteSet {
-		edgeSite := val.(EdgeSite)
+		edgeSite := val.(Site)
 		dist := p.GreatCircleDistance(edgeSite.GeoCoords)
 		if first || dist < minDist {
 			closest = edgeSite.IP
