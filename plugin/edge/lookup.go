@@ -11,24 +11,25 @@ import (
 
 // Forward forwards the request in state as-is. Unlike Lookup that adds EDNS0 suffix to the message.
 func (e *Edge) Forward(state request.Request) (*dns.Msg, error) {
-	if oe == nil {
+	if e == nil {
 		return nil, errNoEdge
 	}
 
 	fails := 0
 	var upstreamErr error
-	for _, proxy := range oe.list() {
-		if proxy.Down(e.maxfails) {
+	for _, proxy := range e.list() {
+		if proxy.Down(e.maxUpstreamFails) {
 			fails++
 			if fails < len(e.proxies) {
 				continue
 			}
 			// All upstream proxies are dead, assume healtcheck is complete broken and randomly
 			// select an upstream to connect to.
-			proxy = oe.list()[0]
+			proxy = e.list()[0]
 		}
 
-		ret, err := proxy.connect(context.Background(), state, oe.forceTCP, true)
+		// Make the connection and receive the response.
+		ret, err := proxy.connect(context.Background(), state, e.forceTCP, true)
 
 		ret, err = truncated(ret, err)
 		upstreamErr = err
@@ -59,7 +60,7 @@ func (e *Edge) Forward(state request.Request) (*dns.Msg, error) {
 // set any EDNS0 options correctly so that downstream will be able to process the reply.
 // Lookup may be called with a nil f, an error is returned in that case.
 func (e *Edge) Lookup(state request.Request, name string, typ uint16) (*dns.Msg, error) {
-	if oe == nil {
+	if e == nil {
 		return nil, errNoEdge
 	}
 
@@ -69,16 +70,5 @@ func (e *Edge) Lookup(state request.Request, name string, typ uint16) (*dns.Msg,
 
 	state2 := request.Request{W: state.W, Req: req}
 
-	return oe.Forward(state2)
-}
-
-// NewLookup returns a Edge that can be used for plugin that need an upstream to resolve external names.
-// Note that the caller must run Close on the forward to stop the health checking goroutines.
-func NewLookup(addr []string) *Edge {
-	oe := New()
-	for i := range addr {
-		p := NewProxy(addr[i], nil)
-		oe.SetProxy(p)
-	}
-	return oe
+	return e.Forward(state2)
 }

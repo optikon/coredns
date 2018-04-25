@@ -1,5 +1,3 @@
-// NOTE: This file adopted from the existing `forward` plugin for CoreDNS.
-
 package edge
 
 import (
@@ -13,28 +11,24 @@ import (
 
 // Check is used as the up.Func in the up.Probe.
 func (p *Proxy) Check() error {
-	err := p.send()
+	err := p.sendHealthCheck()
 	if err != nil {
 		atomic.AddUint32(&p.fails, 1)
 		return err
 	}
-
 	atomic.StoreUint32(&p.fails, 0)
 	return nil
 }
 
-func (p *Proxy) send() error {
+// Sends a healthcheck ping to the proxy.
+func (p *Proxy) sendHealthCheck() error {
 	hcping := new(dns.Msg)
 	hcping.SetQuestion(".", dns.TypeNS)
-
 	m, _, err := p.client.Exchange(hcping, p.addr)
-	// If we got a header, we're alright, basically only care about I/O errors 'n stuff
 	if err != nil && m != nil {
-		// Silly check, something sane came back
 		if m.Response || m.Opcode == dns.OpcodeQuery {
 			err = nil
 		}
 	}
-
 	return err
 }

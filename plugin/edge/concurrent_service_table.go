@@ -1,7 +1,7 @@
 package edge
 
 import (
-	"fmt"
+	"net"
 	"sync"
 )
 
@@ -9,13 +9,13 @@ import (
 type ServiceDNS string
 
 // ServiceTable specifies the mapping from service DNS names to edge sites.
-type ServiceTable map[ServiceDNS]EdgeSiteSet
+type ServiceTable map[ServiceDNS]Set
 
 // ServiceTableUpdate encapsulates all the information sent in a table update
 // from an edge site.
 type ServiceTableUpdate struct {
-	Meta     EdgeSite     `json:"meta"`
-	Services []ServiceDNS `json:"services"`
+	Meta     EdgeSite `json:"meta"`
+	Services Set      `json:"services"`
 }
 
 // ConcurrentServiceTable is a table that can be safely shared between goroutines.
@@ -26,29 +26,26 @@ type ConcurrentServiceTable struct {
 
 // NewConcurrentServiceTable creates a new concurrent table.
 func NewConcurrentServiceTable() *ConcurrentServiceTable {
-	return &ConcurrentTable{
-		table: make(Table),
+	return &ConcurrentServiceTable{
+		table: make(ServiceTable),
 	}
 }
 
 // Lookup performs a locked lookup for edge sites running a particular service.
-func (cst *ConcurrentServiceTable) Lookup(svc ServiceDNS) (EdgeSiteSet, bool) {
+func (cst *ConcurrentServiceTable) Lookup(svc ServiceDNS) (Set, bool) {
 	cst.Lock()
 	defer cst.Unlock()
-	return cst.table[svc]
+	set, found := cst.table[svc]
+	return set, found
 }
 
 // Update adds new entries to the table.
-func (cst *ConcurrentServiceTable) Update(ip string, lon, lat float64, serviceNames []ServiceDNS) {
-
-	// Print a log message.
-	log.Infof("==========\nUpdating Table (IP: %s, Lon: %f, Lat: %f) with services: %+v (len: %d)\n==========\n", ip, lon, lat, serviceDomains, len(serviceDomains))
+func (cst *ConcurrentServiceTable) Update(ip net.IP, geoCoords *Point, serviceNames Set) {
 
 	// Create a struct to represent the edge site.
 	myEdgeSite := EdgeSite{
-		IP:  ip,
-		Lon: lon,
-		Lat: lat,
+		IP:        ip,
+		GeoCoords: geoCoords,
 	}
 
 	// Lock down the table.
@@ -56,28 +53,27 @@ func (cst *ConcurrentServiceTable) Update(ip string, lon, lat float64, serviceNa
 	defer cst.Unlock()
 
 	// Loop over services and add the new entries.
-	serviceNameSet := make(map[ServiceDNS]bool)
-	for _, serviceDomain := range serviceDomains {
-		serviceDomainSet[serviceDomain] = true
-		if edgeSites, found := cst.table[serviceDomain]; found {
+	for val := range serviceNames {
+		serviceName := val.(ServiceDNS)
+		if edgeSites, found := cst.table[serviceName]; found {
 			edgeSites.Add(myEdgeSite)
 		} else {
-			newSet := NewEdgeSiteSet()
+			newSet := NewSet()
 			newSet.Add(myEdgeSite)
-			cst.table[serviceDomain] = newSet
+			cst.table[serviceName] = newSet
 		}
 	}
 
 	// Loop over the existing services and remove any that are no longer running.
-	// NOTE: We need to remove empty entries _after_ iterating over the map.
-	entriesToDelete := make([]string, 0)
-	for serviceDomain, edgeSiteSet := range cst.table {
-		if serviceDomainSet[serviceDomain] {
+	// NOTE: We need to remove empty entries *after* iterating over the map.
+	entriesToDelete := make([]ServiceDNS, 0)
+	for serviceName, edgeSiteSet := range cst.table {
+		if serviceNames.Contains(serviceName) {
 			continue
 		}
 		edgeSiteSet.Remove(myEdgeSite)
-		if edgeSiteSet.Size() == 0 {
-			entriesToDelete = append(entriesToDelete, serviceDomain)
+		if edgeSiteSet.Len() == 0 {
+			entriesToDelete = append(entriesToDelete, serviceName)
 		}
 	}
 
@@ -85,8 +81,4 @@ func (cst *ConcurrentServiceTable) Update(ip string, lon, lat float64, serviceNa
 	for _, entry := range entriesToDelete {
 		delete(cst.table, entry)
 	}
-
-	// Print the updated table.
-	fmt.Printf("----------\nUpdated Table: %+v\n----------\n", cst.table)
-
 }

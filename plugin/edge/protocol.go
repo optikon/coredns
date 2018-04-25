@@ -1,11 +1,20 @@
-// NOTE: This file adopted from the existing `forward` plugin for CoreDNS.
-
 package edge
 
 // Copied from coredns/core/dnsserver/address.go
 
 import (
 	"strings"
+)
+
+const (
+	_dns = "dns"
+	_tls = "tls"
+)
+
+// Supported protocols.
+const (
+	DNS = iota + 1
+	TLS
 )
 
 // protocol returns the protocol of the string s. The second string returns s
@@ -19,14 +28,3 @@ func protocol(s string) (int, string) {
 	}
 	return DNS, s
 }
-
-// Supported protocols.
-const (
-	DNS = iota + 1
-	TLS
-)
-
-const (
-	_dns = "dns"
-	_tls = "tls"
-)

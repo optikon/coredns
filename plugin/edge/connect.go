@@ -1,5 +1,3 @@
-// NOTE: This file adopted from the existing `forward` plugin for CoreDNS.
-
 package edge
 
 import (
@@ -11,6 +9,7 @@ import (
 	"golang.org/x/net/context"
 )
 
+// Establishes a connection and forwards a message to the upstream proxy.
 func (p *Proxy) connect(ctx context.Context, state request.Request, forceTCP, metric bool) (*dns.Msg, error) {
 
 	proto := state.Proto()

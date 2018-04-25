@@ -13,6 +13,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
+	pkgtls "github.com/coredns/coredns/plugin/pkg/tls"
 )
 
 // The global logger for this plugin.
@@ -43,7 +44,7 @@ func setup(c *caddy.Controller) error {
 
 	// Make sure the max number of upstream proxies isn't exceeded.
 	if e.NumUpstreams() > maxUpstreams {
-		return plugin.Error(pluginName, fmt.Errorf("more than %d TOs configured: %d", maxUpstreams, o.NumUpstreams()))
+		return plugin.Error(pluginName, fmt.Errorf("more than %d TOs configured: %d", maxUpstreams, e.NumUpstreams()))
 	}
 
 	// Add the plugin handler to the dnsserver.
@@ -81,7 +82,7 @@ func (e *Edge) OnStartup() (err error) {
 		GeoCoords: e.geoCoords,
 	}
 	for _, p := range e.proxies {
-		p.start(e.hcInterval)
+		p.start(e.healthCheckInterval)
 		p.startPushingServices(e.svcPushInterval, meta, e.services)
 	}
 	return nil
@@ -106,23 +107,31 @@ func parseEdge(c *caddy.Controller) (*Edge, error) {
 	// Initialize a new Edge struct.
 	e := New()
 
-	// TODO: CLEAN
-	protocols := map[int]int{}
+	// Declare protocols outside loop scope.
+	var protocols map[int]int
 
+	// Read in the plugin arguments.
 	i := 0
 	for c.Next() {
+
+		// Make sure the plugin is only specified once in the Corefile.
 		if i > 0 {
 			return nil, plugin.ErrOnce
 		}
 		i++
 
-		// Parse my IP address.
-		if !c.Args(&e.ip) {
+		// Parse my IP address and assert that it's valid.
+		var ip string
+		if !c.Args(&ip) {
 			return e, c.ArgErr()
 		}
+		e.ip = net.ParseIP(ip)
+		if e.ip == nil {
+			return nil, errInvalidIP
+		}
 
-		// Parse the edge cluster's longitude value.
-		var lon string
+		// Parse the edge cluster's longitude and latitude values.
+		var lon, lat string
 		if !c.Args(&lon) {
 			return e, c.ArgErr()
 		}
@@ -130,10 +139,6 @@ func parseEdge(c *caddy.Controller) (*Edge, error) {
 		if err != nil {
 			return e, err
 		}
-		e.lon = parsedLon
-
-		// Parse the latitude value.
-		var lat string
 		if !c.Args(&lat) {
 			return e, c.ArgErr()
 		}
@@ -141,54 +146,34 @@ func parseEdge(c *caddy.Controller) (*Edge, error) {
 		if err != nil {
 			return e, err
 		}
-		e.lat = parsedLat
+		e.geoCoords = NewPoint(parsedLon, parsedLat)
 
-		// Parse the service read interval.
-		var svcReadIntervalSecsString string
-		if !c.Args(&svcReadIntervalSecsString) {
+		// Parse and normalize the base domain.
+		if !c.Args(&e.baseDomain) {
 			return e, c.ArgErr()
 		}
-		svcReadIntervalSecs, err := strconv.Atoi(svcReadIntervalSecsString)
-		if err != nil {
-			return e, err
-		}
-		e.svcReadInterval = time.Duration(svcReadIntervalSecs) * time.Second
+		e.baseDomain = plugin.Host(e.baseDomain).Normalize()
 
-		// Parse the service push interval.
-		var svcPushIntervalSecsString string
-		if !c.Args(&svcPushIntervalSecsString) {
-			return e, c.ArgErr()
-		}
-		svcPushIntervalSecs, err := strconv.Atoi(svcPushIntervalSecsString)
-		if err != nil {
-			return e, err
-		}
-		e.svcPushInterval = time.Duration(svcPushIntervalSecs) * time.Second
-
-		if !c.Args(&e.from) {
-			return e, c.ArgErr()
-		}
-		e.from = plugin.Host(e.from).Normalize()
-
-		to := c.RemainingArgs()
-		if len(to) == 0 {
-			return e, c.ArgErr()
-		}
+		// Parse the upstream addresses as the remaining args.
+		// NOTE: We don't complain if there are no upstreams.
+		upstreams := c.RemainingArgs()
 
 		// A bit fiddly, but first check if we've got protocols and if so add them back in when we create the proxies.
 		protocols = make(map[int]int)
-		for i := range to {
-			protocols[i], to[i] = protocol(to[i])
+		for i := range upstreams {
+			protocols[i], upstreams[i] = protocol(upstreams[i])
 		}
 
 		// If parseHostPortOrFile expands a file with a lot of nameserver our accounting in protocols doesn't make
-		// any sense anymore... For now: lets don't care.
-		toHosts, err := dnsutil.ParseHostPortOrFile(to...)
+		// any sense anymore... For now: we don't care.
+		upstreamHosts, err := dnsutil.ParseHostPortOrFile(upstreams...)
 		if err != nil {
 			return e, err
 		}
 
-		for i, h := range toHosts {
+		// Configure the proxies based on the list of upstream hosts.
+		for i, h := range upstreamHosts {
+
 			// Double check the port, if e.g. is 53 and the transport is TLS make it 853.
 			// This can be somewhat annoying because you *can't* have TLS on port 53 then.
 			switch protocols[i] {
@@ -212,6 +197,7 @@ func parseEdge(c *caddy.Controller) (*Edge, error) {
 			e.proxies = append(e.proxies, p)
 		}
 
+		// Parse the extra configuration.
 		for c.NextBlock() {
 			if err := parseBlock(c, e); err != nil {
 				return e, err
@@ -232,7 +218,11 @@ func parseEdge(c *caddy.Controller) (*Edge, error) {
 	return e, nil
 }
 
+// Parses the extra plugin configuration flags in the block section of the
+// plugin arguments.
 func parseBlock(c *caddy.Controller, e *Edge) error {
+
+	// See README for explanation of these arguments.
 	switch c.Val() {
 	case "except":
 		ignore := c.RemainingArgs()
@@ -254,7 +244,7 @@ func parseBlock(c *caddy.Controller, e *Edge) error {
 		if n < 0 {
 			return fmt.Errorf("max_fails can't be negative: %d", n)
 		}
-		e.maxfails = uint32(n)
+		e.maxUpstreamFails = uint32(n)
 	case "health_check":
 		if !c.NextArg() {
 			return c.ArgErr()
@@ -266,7 +256,31 @@ func parseBlock(c *caddy.Controller, e *Edge) error {
 		if dur < 0 {
 			return fmt.Errorf("health_check can't be negative: %d", dur)
 		}
-		e.hcInterval = dur
+		e.healthCheckInterval = dur
+	case "svc_read_interval":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur < 0 {
+			return fmt.Errorf("svc_read_interval can't be negative: %d", dur)
+		}
+		e.svcReadInterval = dur
+	case "svc_push_interval":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur < 0 {
+			return fmt.Errorf("svc_push_interval can't be negative: %d", dur)
+		}
+		e.svcPushInterval = dur
 	case "force_tcp":
 		if c.NextArg() {
 			return c.ArgErr()
@@ -277,7 +291,6 @@ func parseBlock(c *caddy.Controller, e *Edge) error {
 		if len(args) > 3 {
 			return c.ArgErr()
 		}
-
 		tlsConfig, err := pkgtls.NewTLSConfigFromArgs(args...)
 		if err != nil {
 			return err
@@ -306,18 +319,15 @@ func parseBlock(c *caddy.Controller, e *Edge) error {
 		}
 		switch x := c.Val(); x {
 		case "random":
-			e.p = &random{}
+			e.policy = &random{}
 		case "round_robin":
-			e.p = &roundRobin{}
+			e.policy = &roundRobin{}
 		default:
 			return c.Errf("unknown policy '%s'", x)
 		}
-
 	default:
 		return c.Errf("unknown property '%s'", c.Val())
 	}
 
 	return nil
 }
-
-const maxUpstreams = 15 // Maximum number of upstreams.

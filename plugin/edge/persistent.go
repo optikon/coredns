@@ -1,5 +1,3 @@
-// NOTE: This file adopted from the existing `forward` plugin for CoreDNS.
-
 package edge
 
 import (
@@ -10,7 +8,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-// a persistConn hold the dns.Conn and the last used time.
+// persistConn holds the dns.Conn and the last used time.
 type persistConn struct {
 	c    *dns.Conn
 	used time.Time
@@ -22,10 +20,10 @@ type connErr struct {
 	err error
 }
 
-// transport hold the persistent cache.
+// transport holds the persistent cache.
 type transport struct {
 	conns     map[string][]*persistConn //  Buckets for udp, tcp and tcp-tls.
-	expire    time.Duration             // After this duration a connection is expired.
+	expire    time.Duration             //  After this duration a connection is expired.
 	addr      string
 	tlsConfig *tls.Config
 
@@ -40,6 +38,7 @@ type transport struct {
 	stop chan bool
 }
 
+// Initializes a new transport channel and manages it in a goroutine.
 func newTransport(addr string, tlsConfig *tls.Config) *transport {
 	t := &transport{
 		conns:   make(map[string][]*persistConn),
@@ -56,7 +55,7 @@ func newTransport(addr string, tlsConfig *tls.Config) *transport {
 	return t
 }
 
-// len returns the number of connection, used for metrics. Can only be safely
+// len returns the number of connections, used for metrics. Can only be safely
 // used inside connManager() because of data races.
 func (t *transport) len() int {
 	l := 0
@@ -81,8 +80,8 @@ Wait:
 		select {
 		case proto := <-t.dial:
 			// Yes O(n), shouldn't put millions in here. We walk all connection until we find the first
-			// one that is usuable.
-			i := 0
+			// one that is usable.
+			var i int
 			for i = 0; i < len(t.conns[proto]); i++ {
 				pc := t.conns[proto][i]
 				if time.Since(pc.used) < t.expire {
@@ -99,12 +98,11 @@ Wait:
 			t.conns[proto] = t.conns[proto][i:]
 
 			go func() {
-				if proto != "tcp-tls" {
+				if proto != tcpTLS {
 					c, err := dns.DialTimeout(proto, t.addr, dialTimeout)
 					t.ret <- connErr{c, err}
 					return
 				}
-
 				c, err := dns.DialTimeoutWithTLS("tcp", t.addr, t.tlsConfig, dialTimeout)
 				t.ret <- connErr{c, err}
 			}()
@@ -122,7 +120,7 @@ Wait:
 				continue Wait
 			}
 
-			t.conns["tcp-tls"] = append(t.conns["tcp-tls"], &persistConn{conn.c, time.Now()})
+			t.conns[tcpTLS] = append(t.conns[tcpTLS], &persistConn{conn.c, time.Now()})
 
 		case <-t.stop:
 			return
@@ -139,17 +137,19 @@ Wait:
 
 // Dial dials the address configured in transport, potentially reusing a connection or creating a new one.
 func (t *transport) Dial(proto string) (*dns.Conn, error) {
-	// If tls has been configured; use it.
+
+	// If tls has been configured, use it.
 	if t.tlsConfig != nil {
-		proto = "tcp-tls"
+		proto = tcpTLS
 	}
 
 	t.dial <- proto
 	c := <-t.ret
+
 	return c.c, c.err
 }
 
-// Yield return the connection to transport for reuse.
+// Yield returns the connection to transport for reuse.
 func (t *transport) Yield(c *dns.Conn) {
 	t.yield <- connErr{c, nil}
 }
@@ -162,5 +162,3 @@ func (t *transport) SetExpire(expire time.Duration) { t.expire = expire }
 
 // SetTLSConfig sets the TLS config in transport.
 func (t *transport) SetTLSConfig(cfg *tls.Config) { t.tlsConfig = cfg }
-
-const defaultExpire = 10 * time.Second

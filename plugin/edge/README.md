@@ -6,19 +6,19 @@
 
 ## Description
 
-[FINISH]
+This plugin is responsible for resolving incoming client requests by either returning its own IP if the service is already running on this cluster, otherwise it performs a lookup in its local `serviceDNS->[]edgeSite` mapping and tried to find an edge site that is running the requested service closest to the requested. If no such service can be found, it forwards the request up to its (possibly many) upstream proxies, which perform the same process in a CDN-like behavior. Whatever gets returned from upstream is used as the authoritative answer and is sent back to the client.
+
+This plugin also runs a routine daemon process that calls the Kubernetes cluster API to fetch its running services, and pushes that list up to its upstream proxies so they can update their local tables and accurately resolve future requests. This plugin also plays the roll of an upstream proxy, listening for sets of running services to be pushed up from downstream edge sites via a simple RESTful API passing JSON data.
 
 ## Syntax
 
 ~~~ txt
-edge MY_IP LONGITUDE LATITUDE SVC_READ_INTERVAL SVC_PUSH_INTERVAL BASE_DOMAIN UPSTREAMS...
+edge MY_IP LONGITUDE LATITUDE BASE_DOMAIN UPSTREAMS...
 ~~~
 
 * __MY_IP__ is the address of the DNS server running this plugin.
 * __LONGITUDE__ is the longitude coordinate of the DNS server running this plugin.
 * __LATITUDE__ is the latitude coordinate of the DNS server running this plugin.
-* __SVC_READ_INTERVAL__ is the number of _seconds_ before this plugin reads its locally running Kubernetes services.
-* __SVC_PUSH_INTERVAL__ is the number of _seconds_ before this plugin pushes the list of its locally running services upstream to all its proxies.
 * __BASE_DOMAIN__ is the base domain to match against incoming DNS requests.
 * __UPSTREAMS...__ are the upstream proxies used to resolve requests that can't be resolved locally. The __UPSTREAMS__ syntax allows you to specify a protocol, `tls://9.9.9.9` or `dns://` (or no protocol) for plain DNS. The number of upstreams is limited to 15.
 
@@ -27,7 +27,7 @@ Multiple upstreams are randomized (see `policy`) on first use. When a healthy pr
 Extra configuration is available through the expanded syntax:
 
 ~~~ txt
-edge MY_IP LONGITUDE LATITUDE SVC_READ_INTERVAL SVC_PUSH_INTERVAL BASE_DOMAIN UPSTREAMS... {
+edge MY_IP LONGITUDE LATITUDE BASE_DOMAIN UPSTREAMS... {
     except IGNORED_NAMES...
     force_tcp
     expire DURATION
@@ -36,6 +36,8 @@ edge MY_IP LONGITUDE LATITUDE SVC_READ_INTERVAL SVC_PUSH_INTERVAL BASE_DOMAIN UP
     tls_servername NAME
     policy random|round_robin|sequential
     health_check DURATION
+    svc_read_interval DURATION
+    svc_push_interval DURATION
 }
 ~~~
 
@@ -54,6 +56,8 @@ edge MY_IP LONGITUDE LATITUDE SVC_READ_INTERVAL SVC_PUSH_INTERVAL BASE_DOMAIN UP
 * `tls_servername` __NAME__ allows you to set a server name in the TLS configuration; for instance 9.9.9.9 needs this to be set to `dns.quad9.net`.
 * `policy` specifies the policy to use for selecting upstream servers. The default is `random`.
 * `health_check`, use a different __DURATION__ for health checking, the default duration is 0.5s.
+* `svc_read_interval` is the amount of sleep time between reading locally running Kubernetes services. Default is 2s.
+* `svc_push_interval` is the amount of sleep time between pushing the list of locally running services upstream. Default is 3s.
 
 Also note the TLS config is "global" for the whole upstream proxy if you need a different `tls-name` for different upstreams you're out of luck.
 
@@ -70,7 +74,10 @@ An example Corefile might look like
     kubernetes cluster.local {
        fallthrough
     }
-    edge 172.16.7.102 43.264 36.694 2 4 . 172.16.7.101:53 172.16.7.105:53
+    edge 172.16.7.102 43.264 36.694 . 172.16.7.101:53 172.16.7.105:53 {
+        svc_read_interval 2.5s
+        svc_push_interval 4s
+    }
     proxy . 8.8.8.8:53
 }
 ~~~

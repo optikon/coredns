@@ -8,7 +8,7 @@ import (
 
 // Start listening for table updates on port 8053.
 func (e *Edge) startListeningForTableUpdates() {
-	e.server = &http.Server{Addr: ":8053"}
+	e.server = &http.Server{Addr: ":" + pushPort}
 	http.HandleFunc("/", e.parseTableUpdate)
 	go func() {
 		if err := e.server.ListenAndServe(); err != nil {
@@ -23,11 +23,11 @@ func (e *Edge) parseTableUpdate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Errorln("Error while reading table update:", err)
 	}
-	update := TableUpdate{}
+	update := ServiceTableUpdate{}
 	if err = json.Unmarshal(jsn, &update); err != nil {
 		log.Errorln("Error while unmarshalling JSON into table update struct:", err)
 	}
-	e.table.Update(update.Meta.IP, update.Meta.Lon, update.Meta.Lat, update.Services)
+	e.table.Update(update.Meta.IP, update.Meta.GeoCoords, update.Services)
 }
 
 // Stop listening for updates.
