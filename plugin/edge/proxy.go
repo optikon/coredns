@@ -45,11 +45,19 @@ type Proxy struct {
 
 // NewProxy returns a new proxy.
 func NewProxy(addr string, tlsConfig *tls.Config) *Proxy {
+	var host string
 	u, err := url.Parse(addr)
-	if err != nil {
-		log.Fatalf("could not parse upstream network address (%v)", err)
+	if err == nil {
+		host, _, err = net.SplitHostPort(u.Host)
+		if err != nil {
+			log.Fatalf("could not parse upstream network address (%v)", err)
+		}
+	} else {
+		host, _, err = net.SplitHostPort(addr)
+		if err != nil {
+			log.Fatalf("could not parse upstream network address (%v)", err)
+		}
 	}
-	host, _, _ := net.SplitHostPort(u.Host)
 	p := &Proxy{
 		addr:      addr,
 		fails:     0,
