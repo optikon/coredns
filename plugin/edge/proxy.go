@@ -56,6 +56,7 @@ func NewProxy(addr string, tlsConfig *tls.Config) *Proxy {
 		probe:     up.New(),
 		transport: newTransport(addr, tlsConfig),
 		pushAddr:  newPushAddr(host),
+		pushChan:  make(chan struct{}),
 	}
 	p.client = dnsClient(tlsConfig)
 	return p
@@ -119,7 +120,6 @@ func newPushAddr(host string) string {
 // Starts the process of pushing the list of services to upstream proxies.
 func (p *Proxy) startPushingServices(servicePushDuration time.Duration, meta Site, update *ConcurrentSet) {
 	ticker := time.NewTicker(servicePushDuration)
-	p.pushChan = make(chan struct{})
 	go func() {
 		for {
 			select {

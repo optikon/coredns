@@ -9,7 +9,7 @@ data:
         kubernetes cluster.local {
            fallthrough
         }
-        edge ${MY_IP} ${LON} ${LAT} . ${CENTRAL_IP}:53 {
+        edge ${MY_IP} ${LON} ${LAT} . ${UPSTREAMS} {
             svc_read_interval ${SVC_READ_INTERVAL}s
             svc_push_interval ${SVC_PUSH_INTERVAL}s
         }

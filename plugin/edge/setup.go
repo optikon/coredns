@@ -89,7 +89,9 @@ func (e *Edge) OnStartup() (err error) {
 	}
 	for _, p := range e.proxies {
 		p.start(e.healthCheckInterval)
-		p.startPushingServices(e.svcPushInterval, meta, e.services)
+		if e.NumUpstreams() > 0 {
+			p.startPushingServices(e.svcPushInterval, meta, e.services)
+		}
 	}
 	return nil
 }
