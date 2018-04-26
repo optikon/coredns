@@ -25,8 +25,6 @@ func init() {
 	// Initialize logger.
 	log = logrus.New()
 	log.Out = os.Stdout
-	log.SetFormatter()
-	logrus.TextFormatter
 
 	// Register plugin with caddy.
 	caddy.RegisterPlugin(pluginName, caddy.Plugin{
