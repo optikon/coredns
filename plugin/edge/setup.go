@@ -25,6 +25,8 @@ func init() {
 	// Initialize logger.
 	log = logrus.New()
 	log.Out = os.Stdout
+	log.SetFormatter()
+	logrus.TextFormatter
 
 	// Register plugin with caddy.
 	caddy.RegisterPlugin(pluginName, caddy.Plugin{
@@ -65,13 +67,13 @@ func setup(c *caddy.Controller) error {
 
 	// Declare a startup routine.
 	c.OnStartup(func() error {
-		log.Infof("Starting %s plugin...\n", pluginName)
+		log.Infof("Starting %s plugin...", pluginName)
 		return e.OnStartup()
 	})
 
 	// Declare a teardown routine.
 	c.OnShutdown(func() error {
-		log.Infof("Shutting down %s plugin...\n", pluginName)
+		log.Infof("Shutting down %s plugin...", pluginName)
 		return e.OnShutdown()
 	})
 

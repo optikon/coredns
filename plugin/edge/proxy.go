@@ -130,19 +130,19 @@ func (p *Proxy) startPushingServices(servicePushDuration time.Duration, meta Sit
 				}
 				jsn, err := convertToServiceTableUpdate(update, meta)
 				if err != nil {
-					log.Errorf("error while marshalling json (%v)\n", err)
+					log.Errorf("error while marshalling json (%v)", err)
 					continue
 				}
 				req, err := http.NewRequest("POST", p.pushAddr, bytes.NewBuffer(jsn))
 				if err != nil {
-					log.Errorf("error while formulating request to upstream proxy (%v)\n", err)
+					log.Errorf("error while formulating request to upstream proxy (%v)", err)
 					continue
 				}
 				req.Header.Set("Content-Type", "application/json")
 				client := &http.Client{}
 				resp, err := client.Do(req)
 				if err != nil {
-					log.Errorf("error while POSTing request to upstream (%v)\n", err)
+					log.Errorf("error while POSTing request to upstream (%v)", err)
 					continue
 				}
 				if resp.StatusCode != 200 {

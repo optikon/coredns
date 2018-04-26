@@ -18,7 +18,7 @@ func (e *Edge) startReadingServices() {
 			case <-ticker.C:
 				services, err := e.clientset.CoreV1().Services("").List(metaV1.ListOptions{})
 				if err != nil {
-					log.Errorf("couldn't read locally running Kubernetes services: %v\n", err)
+					log.Errorf("couldn't read locally running Kubernetes services: %v", err)
 					continue
 				}
 				serviceSet := make(Set)

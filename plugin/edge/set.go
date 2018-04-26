@@ -18,7 +18,7 @@ func NewSet() Set {
 func (s Set) Add(value interface{}) {
 	hash, err := hashstructure.Hash(value, nil)
 	if err != nil {
-		log.Errorf("type could not be hashed: %+v\n", value)
+		log.Errorf("type could not be hashed: %+v", value)
 	}
 	s[hash] = value
 }
@@ -27,7 +27,7 @@ func (s Set) Add(value interface{}) {
 func (s Set) Contains(value interface{}) bool {
 	hash, err := hashstructure.Hash(value, nil)
 	if err != nil {
-		log.Errorf("type could not be hashed: %+v\n", value)
+		log.Errorf("type could not be hashed: %+v", value)
 	}
 	_, found := s[hash]
 	return found
@@ -37,7 +37,7 @@ func (s Set) Contains(value interface{}) bool {
 func (s Set) Remove(value interface{}) {
 	hash, err := hashstructure.Hash(value, nil)
 	if err != nil {
-		log.Errorf("type could not be hashed: %+v\n", value)
+		log.Errorf("type could not be hashed: %+v", value)
 	}
 	if _, exists := s[hash]; exists {
 		delete(s, hash)

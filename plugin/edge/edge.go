@@ -135,7 +135,7 @@ func (e *Edge) NumUpstreams() int { return len(e.proxies) }
 func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
 	// Log the incoming request.
-	log.Infof("receiving request:\n%+v\n", r)
+	log.Infof("receiving request:\n%+v", r)
 
 	// Encapsolate the state of the request and response.
 	state := request.Request{W: w, Req: r}
@@ -159,7 +159,7 @@ func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	// with my ip if it is.
 	if !locFound && e.services.Contains(requestedService) {
 		writeAuthoritativeResponse(res, &state, e.ip)
-		log.Infof("requested service %s found running locally. returning my ip\n", requestedService)
+		log.Infof("requested service %s found running locally. returning my ip", requestedService)
 		return dns.RcodeSuccess, nil
 	}
 

@@ -12,7 +12,7 @@ func (e *Edge) startListeningForTableUpdates() {
 	http.HandleFunc("/", e.parseTableUpdate)
 	go func() {
 		if err := e.server.ListenAndServe(); err != nil {
-			log.Errorf("ListenAndServe error: %s\n", err)
+			log.Errorf("ListenAndServe error: %s", err)
 		}
 	}()
 }
