@@ -49,6 +49,9 @@ type Edge struct {
 	// The geo coordinates of this cluster.
 	geoCoords *Point
 
+	// The LOC Resource Record associated with this edge site's location.
+	locRR dns.RR
+
 	// The interval for reading and pushing locally running Kubernetes services.
 	svcReadInterval time.Duration
 	svcPushInterval time.Duration
@@ -131,6 +134,9 @@ func (e *Edge) NumUpstreams() int { return len(e.proxies) }
 // handle this request.
 func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
+	// Log the incoming request.
+	log.Infof("receiving request:\n%+v\n", r)
+
 	// Encapsolate the state of the request and response.
 	state := request.Request{W: w, Req: r}
 
@@ -180,7 +186,7 @@ func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	}
 
 	// Inject my location as a LOC record in the Extra fields of the message.
-	insertLocationRecord(r, e.geoCoords)
+	insertLocationRecord(r, e.locRR)
 
 	// Forward the request to one of the upstream proxies.
 	fails := 0

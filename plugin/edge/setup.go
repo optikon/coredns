@@ -47,6 +47,12 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error(pluginName, fmt.Errorf("more than %d TOs configured: %d", maxUpstreams, e.NumUpstreams()))
 	}
 
+	// Convert the geographic lon-lat coordinates into a LOC record.
+	e.locRR, err = convertPointToLOC(e.geoCoords)
+	if err != nil {
+		return err
+	}
+
 	// Add the plugin handler to the dnsserver.
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		e.clientset, err = RegisterKubernetesClient()

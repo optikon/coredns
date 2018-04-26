@@ -12,4 +12,5 @@ var (
 	errTableParseFailure     = errors.New("unable to parse Table returned from upstream")
 	errFindingClosestCluster = errors.New("unable to compute closest edge cluster")
 	errInvalidIP             = errors.New("invalid IP address")
+	errInvalidLOC            = errors.New("unable to parse LOC record")
 )
