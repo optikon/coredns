@@ -77,7 +77,11 @@ func convertPointToLOC(point *Point) (dns.RR, error) {
 
 	// Convert the LOC to a string.
 	loc.Header().Name = edgeDomain
-	locStr := loc.Header().String() + loc.String()
+	loc.Header().Class = dns.ClassINET
+	loc.Header().Rrtype = dns.TypeLOC
+	loc.Header().Ttl = 0
+	loc.Header().Rdlength = uint16(len(loc.String()))
+	locStr := loc.Header().String() + "\t" + loc.String()
 
 	// Converts the LOC to a basic RR.
 	rr, err := dns.NewRR(locStr)
