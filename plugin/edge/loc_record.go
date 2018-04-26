@@ -80,11 +80,11 @@ func convertPointToLOC(point *Point) (dns.RR, error) {
 	if err != nil {
 		return nil, err
 	}
-	loc.Header().Name = edgeDomain
-	loc.Header().Class = dns.ClassINET
-	loc.Header().Rrtype = dns.TypeLOC
-	loc.Header().Ttl = 0
-	loc.Header().Rdlength = uint16(len(loc.String()))
+	rr.Header().Name = edgeDomain
+	rr.Header().Class = dns.ClassINET
+	rr.Header().Rrtype = dns.TypeLOC
+	rr.Header().Ttl = 0
+	rr.Header().Rdlength = uint16(len(rr.String()))
 
 	return rr, nil
 }
