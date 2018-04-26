@@ -25,7 +25,7 @@ spec:
     protocol: TCP
     port: 8053
     targetPort: 8053
-    nodePort: 38053
+    nodePort: 30853
   selector:
     k8s-app: kube-dns
   sessionAffinity: None
