@@ -1,6 +1,9 @@
 package edge
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 // ConcurrentSet is a set of interface{} that can be safely shared between goroutines.
 type ConcurrentSet struct {
@@ -48,4 +51,11 @@ func (cs *ConcurrentSet) Len() int {
 	cs.Lock()
 	defer cs.Unlock()
 	return cs.items.Len()
+}
+
+// String returns the string representation of the set.
+func (cs *ConcurrentSet) String() string {
+	cs.Lock()
+	defer cs.Unlock()
+	return fmt.Sprintf("%+v", cs.items)
 }

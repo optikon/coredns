@@ -26,6 +26,7 @@ func (e *Edge) startReadingServices() {
 					serviceSet[generateServiceDNS(&service)] = exists
 				}
 				e.services.Overwrite(serviceSet)
+				log.Infof("Updated services: %+v", e.services)
 				e.table.Update(e.ip, e.geoCoords, serviceSet)
 			case <-e.svcReadChan:
 				ticker.Stop()

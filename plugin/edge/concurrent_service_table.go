@@ -15,7 +15,7 @@ type ServiceTable map[ServiceDNS]Set
 // from an edge site.
 type ServiceTableUpdate struct {
 	Meta     Site `json:"meta"`
-	Services Set      `json:"services"`
+	Services Set  `json:"services"`
 }
 
 // ConcurrentServiceTable is a table that can be safely shared between goroutines.
@@ -81,4 +81,7 @@ func (cst *ConcurrentServiceTable) Update(ip net.IP, geoCoords *Point, serviceNa
 	for _, entry := range entriesToDelete {
 		delete(cst.table, entry)
 	}
+
+	// Log the new table.
+	log.Infof("Updated table: %+v\n", cst.table)
 }
