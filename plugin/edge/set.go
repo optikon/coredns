@@ -1,13 +1,13 @@
 package edge
 
-import "fmt"
+import (
+	"fmt"
 
-// This represents an existing value in a Golang set.
-// NOTE: struct{} better than bool b/c struct{} is 0 bytes.
-var exists = struct{}{}
+	"github.com/mitchellh/hashstructure"
+)
 
 // Set is a set type for an interface{}.
-type Set map[interface{}]struct{}
+type Set map[uint64]interface{}
 
 // NewSet returns a new instance of a set.
 func NewSet() Set {
@@ -16,19 +16,31 @@ func NewSet() Set {
 
 // Add adds a new entry to the set if it doesn't already exist.
 func (s Set) Add(value interface{}) {
-	s[value] = exists
+	hash, err := hashstructure.Hash(value, nil)
+	if err != nil {
+		log.Errorf("type could not be hashed: %+v\n", value)
+	}
+	s[hash] = value
 }
 
 // Contains returns true if the given value is in the set.
 func (s Set) Contains(value interface{}) bool {
-	_, found := s[value]
+	hash, err := hashstructure.Hash(value, nil)
+	if err != nil {
+		log.Errorf("type could not be hashed: %+v\n", value)
+	}
+	_, found := s[hash]
 	return found
 }
 
 // Remove deletes the given value from the set.
 func (s Set) Remove(value interface{}) {
-	if _, exists := s[value]; exists {
-		delete(s, value)
+	hash, err := hashstructure.Hash(value, nil)
+	if err != nil {
+		log.Errorf("type could not be hashed: %+v\n", value)
+	}
+	if _, exists := s[hash]; exists {
+		delete(s, hash)
 	}
 }
 
@@ -40,7 +52,7 @@ func (s Set) Len() int {
 // String returns a string representation of the set.
 func (s Set) String() string {
 	result := "{"
-	for val := range s {
+	for _, val := range s {
 		result += fmt.Sprintf(" %+v", val)
 	}
 	if s.Len() == 0 {

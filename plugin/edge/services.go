@@ -23,7 +23,7 @@ func (e *Edge) startReadingServices() {
 				}
 				serviceSet := make(Set)
 				for _, service := range services.Items {
-					serviceSet[generateServiceDNS(&service)] = exists
+					serviceSet.Add(generateServiceDNS(&service))
 				}
 				e.services.Overwrite(serviceSet)
 				log.Infof("Updated services: %+v", e.services)

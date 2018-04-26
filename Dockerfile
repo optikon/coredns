@@ -5,6 +5,7 @@ FROM golang:1.10.0 as builder
 RUN go get github.com/coredns/coredns
 RUN go get github.com/opentracing/opentracing-go
 RUN go get github.com/sirupsen/logrus
+RUN go get github.com/mitchellh/hashstructure
 RUN go get k8s.io/client-go/...
 RUN rm -rf /go/src/github.com/coredns/coredns/vendor/github.com/golang/glog
 

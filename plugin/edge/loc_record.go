@@ -39,17 +39,17 @@ var (
 )
 
 // Parses and removes the LOC record from the Extra fields of a DNS message.
-func extractLocationRecord(r *dns.Msg) (*Point, bool) {
+func extractLocationRecord(r *dns.Msg) (Point, bool) {
 
 	// Assert that such a record actually exists.
 	if len(r.Extra) == 0 {
-		return nil, false
+		return Point{}, false
 	}
 
 	// Try to extract the last entry.
 	point, err := convertLOCToPoint(r.Extra[len(r.Extra)-1])
 	if err != nil {
-		return nil, false
+		return Point{}, false
 	}
 
 	// Remove the LOC record from the back of Extra.
@@ -68,39 +68,38 @@ func insertLocationRecord(r *dns.Msg, locRR dns.RR) {
 }
 
 // Takes a geographic point and converts it to a DNS LOC RR record.
-func convertPointToLOC(point *Point) (dns.RR, error) {
+func convertPointToLOC(point Point) (dns.RR, error) {
 
 	// Start by populating a LOC struct.
 	loc := new(dns.LOC)
 	loc.Longitude = uint32(int(float64(dns.LOC_DEGREES)*point.Lon) + dns.LOC_PRIMEMERIDIAN)
 	loc.Latitude = uint32(int(float64(dns.LOC_DEGREES)*point.Lat) + dns.LOC_EQUATOR)
+	loc.Header().Name = edgeDomain
+	loc.Header().Class = dns.ClassINET
+	loc.Header().Rrtype = dns.TypeLOC
+	loc.Header().Ttl = 0
 
 	// Converts the LOC to a basic RR.
 	rr, err := dns.NewRR(loc.String())
 	if err != nil {
 		return nil, err
 	}
-	rr.Header().Name = edgeDomain
-	rr.Header().Class = dns.ClassINET
-	rr.Header().Rrtype = dns.TypeLOC
-	rr.Header().Ttl = 0
-	rr.Header().Rdlength = uint16(len(rr.String()))
 
 	return rr, nil
 }
 
 // Takes a DNS LOC record and converts it to a geographic point.
-func convertLOCToPoint(loc dns.RR) (*Point, error) {
+func convertLOCToPoint(loc dns.RR) (Point, error) {
 
 	// Assert that the RR is a LOC record.
 	if loc.Header().Rrtype != dns.TypeLOC || loc.Header().Name != edgeDomain {
-		return nil, errInvalidLOC
+		return Point{}, errInvalidLOC
 	}
 
 	// Parse out the lon-lat in decimal degrees.
 	lon, lat, err := parseLOCString(loc.String())
 	if err != nil {
-		return nil, err
+		return Point{}, err
 	}
 
 	return NewPoint(lon, lat), nil

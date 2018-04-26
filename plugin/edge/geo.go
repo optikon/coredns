@@ -14,8 +14,8 @@ type Point struct {
 }
 
 // NewPoint returns a new Point for the given lon, lat coordinates.
-func NewPoint(lon, lat float64) *Point {
-	return &Point{
+func NewPoint(lon, lat float64) Point {
+	return Point{
 		Lon: lon,
 		Lat: lat,
 	}
@@ -23,7 +23,7 @@ func NewPoint(lon, lat float64) *Point {
 
 // GreatCircleDistance calculates the shortest path between two coordinates
 // on the surface of the Earth.
-func (p1 *Point) GreatCircleDistance(p2 *Point) float64 {
+func (p1 Point) GreatCircleDistance(p2 Point) float64 {
 	dLat := (p2.Lat - p1.Lat) * radianScalar
 	dLon := (p2.Lon - p1.Lon) * radianScalar
 

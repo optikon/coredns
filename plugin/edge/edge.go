@@ -27,7 +27,7 @@ const (
 // Site is a wrapper for all information needed about edge sites.
 type Site struct {
 	IP        net.IP `json:"ip"`
-	GeoCoords *Point `json:"coords"`
+	GeoCoords Point  `json:"coords"`
 }
 
 // Edge encapsulates all edge plugin state.
@@ -47,7 +47,7 @@ type Edge struct {
 	ip net.IP
 
 	// The geo coordinates of this cluster.
-	geoCoords *Point
+	geoCoords Point
 
 	// The LOC Resource Record associated with this edge site's location.
 	locRR dns.RR
@@ -297,11 +297,11 @@ func writeAuthoritativeResponse(res *dns.Msg, state *request.Request, ip net.IP)
 }
 
 // Determines the IP address of the edge site closest to the given Point.
-func findClosestToPoint(edgeSiteSet Set, p *Point) net.IP {
+func findClosestToPoint(edgeSiteSet Set, p Point) net.IP {
 	var closest net.IP
 	var minDist float64
 	first := true
-	for val := range edgeSiteSet {
+	for _, val := range edgeSiteSet {
 		edgeSite := val.(Site)
 		dist := p.GreatCircleDistance(edgeSite.GeoCoords)
 		if first || dist < minDist {

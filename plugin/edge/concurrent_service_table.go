@@ -40,7 +40,7 @@ func (cst *ConcurrentServiceTable) Lookup(svc ServiceDNS) (Set, bool) {
 }
 
 // Update adds new entries to the table.
-func (cst *ConcurrentServiceTable) Update(ip net.IP, geoCoords *Point, serviceNames Set) {
+func (cst *ConcurrentServiceTable) Update(ip net.IP, geoCoords Point, serviceNames Set) {
 
 	// Create a struct to represent the edge site.
 	mySite := Site{
@@ -53,7 +53,7 @@ func (cst *ConcurrentServiceTable) Update(ip net.IP, geoCoords *Point, serviceNa
 	defer cst.Unlock()
 
 	// Loop over services and add the new entries.
-	for val := range serviceNames {
+	for _, val := range serviceNames {
 		serviceName := val.(ServiceDNS)
 		if edgeSites, found := cst.table[serviceName]; found {
 			edgeSites.Add(mySite)
