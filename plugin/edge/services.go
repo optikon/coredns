@@ -37,8 +37,8 @@ func (e *Edge) startReadingServices() {
 }
 
 // Generates a services DNS that looks like my-svc.my-namespace.svc.cluster.external
-func generateServiceDNS(svc *v1.Service) ServiceDNS {
-	return ServiceDNS(fmt.Sprintf("%s.%s.svc.cluster.external", svc.GetName(), svc.GetNamespace()))
+func generateServiceDNS(svc *v1.Service) string {
+	return fmt.Sprintf("%s.%s.svc.cluster.external", svc.GetName(), svc.GetNamespace())
 }
 
 // Stops reading local Kubernetes services.

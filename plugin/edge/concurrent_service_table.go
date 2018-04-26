@@ -5,11 +5,8 @@ import (
 	"sync"
 )
 
-// ServiceDNS is the DNS name of a Kubernetes service.
-type ServiceDNS string
-
 // ServiceTable specifies the mapping from service DNS names to edge sites.
-type ServiceTable map[ServiceDNS]Set
+type ServiceTable map[string]Set
 
 // ServiceTableUpdate encapsulates all the information sent in a table update
 // from an edge site.
@@ -32,7 +29,7 @@ func NewConcurrentServiceTable() *ConcurrentServiceTable {
 }
 
 // Lookup performs a locked lookup for edge sites running a particular service.
-func (cst *ConcurrentServiceTable) Lookup(svc ServiceDNS) (Set, bool) {
+func (cst *ConcurrentServiceTable) Lookup(svc string) (Set, bool) {
 	cst.Lock()
 	defer cst.Unlock()
 	set, found := cst.table[svc]
@@ -54,7 +51,7 @@ func (cst *ConcurrentServiceTable) Update(ip net.IP, geoCoords Point, serviceNam
 
 	// Loop over services and add the new entries.
 	for _, val := range serviceNames {
-		serviceName := val.(ServiceDNS)
+		serviceName := val.(string)
 		if edgeSites, found := cst.table[serviceName]; found {
 			edgeSites.Add(mySite)
 		} else {
@@ -66,7 +63,7 @@ func (cst *ConcurrentServiceTable) Update(ip net.IP, geoCoords Point, serviceNam
 
 	// Loop over the existing services and remove any that are no longer running.
 	// NOTE: We need to remove empty entries *after* iterating over the map.
-	entriesToDelete := make([]ServiceDNS, 0)
+	entriesToDelete := make([]string, 0)
 	for serviceName, edgeSiteSet := range cst.table {
 		if serviceNames.Contains(serviceName) {
 			continue

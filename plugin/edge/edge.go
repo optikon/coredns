@@ -153,7 +153,7 @@ func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 	// Parse the target domain out of the request (NOTE: This will always have
 	// a trailing dot.)
-	requestedService := ServiceDNS(trimTrailingDot(state.Name()))
+	requestedService := trimTrailingDot(state.Name())
 
 	// Determine if the requested service is running locally and write a reply
 	// with my ip if it is.
