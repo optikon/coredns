@@ -75,19 +75,16 @@ func convertPointToLOC(point *Point) (dns.RR, error) {
 	loc.Longitude = uint32(int(float64(dns.LOC_DEGREES)*point.Lon) + dns.LOC_PRIMEMERIDIAN)
 	loc.Latitude = uint32(int(float64(dns.LOC_DEGREES)*point.Lat) + dns.LOC_EQUATOR)
 
-	// Convert the LOC to a string.
+	// Converts the LOC to a basic RR.
+	rr, err := dns.NewRR(loc.String())
+	if err != nil {
+		return nil, err
+	}
 	loc.Header().Name = edgeDomain
 	loc.Header().Class = dns.ClassINET
 	loc.Header().Rrtype = dns.TypeLOC
 	loc.Header().Ttl = 0
 	loc.Header().Rdlength = uint16(len(loc.String()))
-	locStr := loc.Header().String() + "\t" + loc.String()
-
-	// Converts the LOC to a basic RR.
-	rr, err := dns.NewRR(locStr)
-	if err != nil {
-		return nil, err
-	}
 
 	return rr, nil
 }
