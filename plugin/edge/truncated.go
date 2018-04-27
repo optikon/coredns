@@ -1,3 +1,5 @@
+// Adapted from https://github.com/coredns/coredns/blob/master/plugin/forward/truncated.go
+
 package edge
 
 import "github.com/miekg/dns"

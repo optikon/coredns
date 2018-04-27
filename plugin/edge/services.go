@@ -26,7 +26,9 @@ func (e *Edge) startReadingServices() {
 					serviceSet.Add(generateServiceDNS(&service))
 				}
 				e.services.Overwrite(serviceSet)
-				log.Infof("Updated services: %+v", e.services)
+				if svcDebugMode {
+					log.Infof("Updated services: %+v", e.services)
+				}
 				e.table.Update(e.ip, e.geoCoords, serviceSet)
 			case <-e.svcReadChan:
 				ticker.Stop()

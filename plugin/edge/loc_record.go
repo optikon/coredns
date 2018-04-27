@@ -10,6 +10,9 @@ import (
 	"github.com/miekg/dns"
 )
 
+// The TTL for the LOC record forwarded upstream.
+const locTTL = 0
+
 // The domain name provided in the LOC record.
 var edgeDomain = fmt.Sprintf("%s.site.", pluginName)
 
@@ -34,7 +37,7 @@ var (
 	lonLatRe      = "(\\d+)(?: (\\d+))?(?: (\\d+(?:\\.\\d+)?))?"
 	otherValRe    = "(?: (-?\\d+(?:\\.\\d+)?)m?)"
 	optOtherValRe = fmt.Sprintf("%s?", otherValRe)
-	locReStr      = fmt.Sprintf("%s (N|S) %s (E|W) %s %s %s %s", lonLatRe, lonLatRe, otherValRe, optOtherValRe, optOtherValRe, optOtherValRe)
+	locReStr      = fmt.Sprintf("%s\\.site\\.\\t%d\\tIN\\tLOC\\t%s (N|S) %s (E|W)%s%s%s%s", pluginName, locTTL, lonLatRe, lonLatRe, otherValRe, optOtherValRe, optOtherValRe, optOtherValRe)
 	locRe         = regexp.MustCompile(locReStr)
 )
 
@@ -77,12 +80,17 @@ func convertPointToLOC(point Point) (dns.RR, error) {
 	loc.Header().Name = edgeDomain
 	loc.Header().Class = dns.ClassINET
 	loc.Header().Rrtype = dns.TypeLOC
-	loc.Header().Ttl = 0
+	loc.Header().Ttl = locTTL
 
 	// Converts the LOC to a basic RR.
 	rr, err := dns.NewRR(loc.String())
 	if err != nil {
 		return nil, err
+	}
+
+	// Log the conversion.
+	if dnsDebugMode {
+		log.Infof("converted (%f, %f) to LOC record: %+v", point.Lon, point.Lat, rr)
 	}
 
 	return rr, nil
@@ -93,13 +101,24 @@ func convertLOCToPoint(loc dns.RR) (Point, error) {
 
 	// Assert that the RR is a LOC record.
 	if loc.Header().Rrtype != dns.TypeLOC || loc.Header().Name != edgeDomain {
+		if dnsDebugMode {
+			log.Infof("LOC record expecting type %v and name %s (received %v and %s)", dns.TypeLOC, edgeDomain, loc.Header().Rrtype, loc.Header().Name)
+		}
 		return Point{}, errInvalidLOC
 	}
 
 	// Parse out the lon-lat in decimal degrees.
 	lon, lat, err := parseLOCString(loc.String())
 	if err != nil {
+		if dnsDebugMode {
+			log.Infof("unable to parse LOC string %s (%v)", loc.String(), err)
+		}
 		return Point{}, err
+	}
+
+	// Log the conversion.
+	if dnsDebugMode {
+		log.Infof("converted LOC record %+v to (%f, %f)", loc.String(), lon, lat)
 	}
 
 	return NewPoint(lon, lat), nil
@@ -110,28 +129,20 @@ func parseLOCString(l string) (float64, float64, error) {
 
 	// Use regex to parse out the parts of the string.
 	parts := locRe.FindStringSubmatch(l)
-	if parts == nil {
+	if parts == nil || len(parts) != 13 {
+		log.Errorf("LOC string didn't match regex: recieved parts %+v", parts)
 		return 0.0, 0.0, errInvalidLOC
 	}
 
-	// Quick reference for the matches:
-	// parts[1] == latitude degrees
-	// parts[2] == latitude minutes (optional)
-	// parts[3] == latitude seconds (optional)
-	// parts[4] == N or S
-	// parts[5] == longitude degrees
-	// parts[6] == longitude minutes (optional)
-	// parts[7] == longitude seconds (optional)
-	// parts[8] == E or W
-	// parts[9] == altitude (NOTE: ignore this)
-	// These are completely optional:
-	// parts[10] == size
-	// parts[11] == horizontal precision
-	// parts[12] == vertical precision
+	// Log the parsed parts.
+	if dnsDebugMode {
+		log.Infof("parsed latitude_degrees=%s, latitude_minutes=%s, latitude_seconds=%s, latitude_direction=%s, longitude_degrees=%s, longitude_minutes=%s, longitude_seconds=%s, longitude_direction=%s, altitude=%s, size=%s, horizontal_precision=%s, vertical_precision=%s", parts[1], parts[2], parts[3], parts[4], parts[5], parts[6], parts[7], parts[8], parts[9], parts[10], parts[11], parts[12])
+	}
 
 	// Parse the latitude d, m, s values into decimal degrees.
 	lat, ok := dmsToDD(parts[1], parts[2], parts[3], 90)
 	if !ok {
+		log.Errorf("latitude DMS to DD conversion failed")
 		return 0.0, 0.0, errInvalidLOC
 	}
 	if parts[4] == "S" {
@@ -141,6 +152,7 @@ func parseLOCString(l string) (float64, float64, error) {
 	// Parse the longitude d, m, s values into decimal degrees.
 	lon, ok := dmsToDD(parts[5], parts[6], parts[7], 180)
 	if !ok {
+		log.Errorf("longitude DMS to DD conversion failed")
 		return 0.0, 0.0, errInvalidLOC
 	}
 	if parts[8] == "W" {
@@ -179,6 +191,11 @@ func dmsToDD(d, m, s string, limit uint64) (float64, bool) {
 			return result, false
 		}
 		result += f / 3600.0
+	}
+
+	// Log conversion.
+	if dnsDebugMode {
+		log.Infof("converted DMS (d=%s, m=%s, s=%s) into %f", d, m, s, result)
 	}
 
 	return result, true

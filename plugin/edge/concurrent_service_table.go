@@ -80,5 +80,7 @@ func (cst *ConcurrentServiceTable) Update(ip net.IP, geoCoords Point, serviceNam
 	}
 
 	// Log the new table.
-	log.Infof("Updated table: %+v", cst.table)
+	if svcDebugMode {
+		log.Infof("Updated table: %+v", cst.table)
+	}
 }

@@ -1,3 +1,5 @@
+// Adapted from https://github.com/coredns/coredns/blob/master/plugin/forward/connect.go
+
 package edge
 
 import (

@@ -1,4 +1,4 @@
-// NOTE: This file adopted from the existing `forward` plugin for CoreDNS.
+// Adapted from https://github.com/coredns/coredns/blob/master/plugin/forward/lookup.go
 
 package edge
 

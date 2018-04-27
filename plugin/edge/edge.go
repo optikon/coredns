@@ -1,3 +1,5 @@
+// Adapted from https://github.com/coredns/coredns/blob/master/plugin/forward/forward.go
+
 package edge
 
 import (
@@ -22,6 +24,8 @@ const (
 	defaultExpire           = 10 * time.Second
 	defaultMaxUpstreamFails = 2
 	maxUpstreams            = 15
+	dnsDebugMode            = true
+	svcDebugMode            = false
 )
 
 // Site is a wrapper for all information needed about edge sites.
@@ -135,7 +139,9 @@ func (e *Edge) NumUpstreams() int { return len(e.proxies) }
 func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
 	// Log the incoming request.
-	log.Infof("receiving request:\n%+v", r)
+	if dnsDebugMode {
+		log.Infof("receiving request:\n%+v", r)
+	}
 
 	// Encapsolate the state of the request and response.
 	state := request.Request{W: w, Req: r}
@@ -159,7 +165,9 @@ func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	// with my ip if it is.
 	if !locFound && e.services.Contains(requestedService) {
 		writeAuthoritativeResponse(res, &state, e.ip)
-		log.Infof("requested service %s found running locally. returning my ip", requestedService)
+		if dnsDebugMode {
+			log.Infof("requested service %s found running locally. returning my ip", requestedService)
+		}
 		return dns.RcodeSuccess, nil
 	}
 
@@ -174,19 +182,26 @@ func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			closest = findClosestToPoint(edgeSites, e.geoCoords)
 		}
 		writeAuthoritativeResponse(res, &state, closest)
-		log.Infof("requested service %s found in table. returning its IP: %s", requestedService, closest.String())
+		if dnsDebugMode {
+			log.Infof("requested service %s found in table. returning its IP: %s", requestedService, closest.String())
+		}
 		return dns.RcodeSuccess, nil
 	}
 
 	// If we have no upstream proxies to forward to, fallthrough to the
 	// `proxy` plugin.
 	if e.NumUpstreams() == 0 {
-		log.Infoln("no upstream proxies to resolve request. falling through to `proxy` plugin")
+		if dnsDebugMode {
+			log.Infoln("no upstream proxies to resolve request. falling through to `proxy` plugin")
+		}
 		return plugin.NextOrFailure(e.Name(), e.Next, ctx, w, r)
 	}
 
 	// Inject my location as a LOC record in the Extra fields of the message.
 	insertLocationRecord(r, e.locRR)
+	if dnsDebugMode {
+		log.Infof("forwarding request upstream: %+v", r)
+	}
 
 	// Forward the request to one of the upstream proxies.
 	fails := 0
@@ -262,11 +277,20 @@ func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		return dns.RcodeSuccess, nil
 	}
 
+	// If there was an upstream error, return a server failure.
 	if upstreamErr != nil {
+		if dnsDebugMode {
+			log.Infoln("upstream proxy generated an error (%v)", upstreamErr)
+		}
 		return dns.RcodeServerFailure, upstreamErr
 	}
 
-	return dns.RcodeServerFailure, errNoHealthy
+	// If the request can't be resolved by anything upstream, or if all the upstreams
+	// are unresponsive, fall through to proxy.
+	if dnsDebugMode {
+		log.Infoln("no healthy upstream proxies. falling through to `proxy` plugin")
+	}
+	return plugin.NextOrFailure(e.Name(), e.Next, ctx, w, r)
 }
 
 // Write the given IP address as an Authoritative Answer to the request.

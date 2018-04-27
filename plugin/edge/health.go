@@ -1,3 +1,5 @@
+// Adapted from https://github.com/coredns/coredns/blob/master/plugin/forward/health.go
+
 package edge
 
 import (

@@ -1,3 +1,5 @@
+// Adapted from https://github.com/coredns/coredns/blob/master/plugin/forward/proxy.go
+
 package edge
 
 import (
@@ -133,7 +135,9 @@ func (p *Proxy) startPushingServices(servicePushDuration time.Duration, meta Sit
 			select {
 			case <-ticker.C:
 				if update.Len() == 0 {
-					log.Infoln("no running services to push upstream")
+					if svcDebugMode {
+						log.Infoln("no running services to push upstream")
+					}
 					continue
 				}
 				jsn, err := convertToServiceTableUpdate(update, meta)

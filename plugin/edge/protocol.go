@@ -1,3 +1,5 @@
+// Adapted from https://github.com/coredns/coredns/blob/master/plugin/forward/protocol.go
+
 package edge
 
 // Copied from coredns/core/dnsserver/address.go
