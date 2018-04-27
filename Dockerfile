@@ -4,18 +4,12 @@ FROM golang:1.10.0 as builder
 # Fetch all dependencies.
 RUN go get github.com/coredns/coredns
 RUN go get github.com/opentracing/opentracing-go
-<<<<<<< HEAD
 RUN go get github.com/sirupsen/logrus
 RUN go get github.com/mitchellh/hashstructure
 RUN go get k8s.io/client-go/...
 RUN rm -rf /go/src/github.com/coredns/coredns/vendor/github.com/golang/glog
 
 # Mount the central and edge plugins.
-=======
-
-# Mount the central and edge plugins.
-COPY plugin/central /go/src/wwwin-github.cisco.com/edge/optikon-dns/plugin/central
->>>>>>> 5c6e46abd7f74e7ad7f985a7c18ecaeff134f99a
 COPY plugin/edge /go/src/wwwin-github.cisco.com/edge/optikon-dns/plugin/edge
 
 # Mount the custom plugin.cfg file.
