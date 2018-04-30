@@ -14,6 +14,7 @@ import (
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
 	"golang.org/x/net/context"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -47,27 +48,27 @@ type Edge struct {
 	// Clientset is a reference to in-cluster Kubernetes API.
 	clientset *kubernetes.Clientset
 
+	// Watcher is a watcher object for receiving event updates from the K8s API.
+	watcher watch.Interface
+
 	// IP is the public IP address of this cluster.
 	ip net.IP
 
 	// The geo coordinates of this cluster.
 	geoCoords Point
 
+	// Site encapsulates all the information about this edge site that would
+	// need to get sent upstream.
+	site Site
+
 	// The LOC Resource Record associated with this edge site's location.
 	locRR dns.RR
-
-	// The interval for reading and pushing locally running Kubernetes services.
-	svcReadInterval time.Duration
-	svcPushInterval time.Duration
-
-	// A channel for halting the service-reading process.
-	svcReadChan chan struct{}
 
 	// A server for receiving table updates from downstream edge sites.
 	server *http.Server
 
 	// The set of services currently running at this edge site.
-	services *ConcurrentSet
+	services Set
 
 	// The set of upstream proxies for forwarding requests.
 	proxies []*Proxy
@@ -107,10 +108,8 @@ func New() *Edge {
 		policy:              new(random),
 		baseDomain:          ".",
 		healthCheckInterval: healthCheckDuration,
-		svcReadInterval:     defaultSvcReadInterval,
-		svcPushInterval:     defaultSvcPushInterval,
 		table:               NewConcurrentServiceTable(),
-		services:            NewConcurrentSet(),
+		services:            NewSet(),
 	}
 }
 
