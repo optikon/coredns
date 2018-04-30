@@ -74,7 +74,10 @@ An example Corefile might look like
     kubernetes cluster.local {
        fallthrough
     }
-    edge 172.16.7.102 43.264 36.694 . 172.16.7.101:53 172.16.7.105:53
+    edge 172.16.7.102 43.264 36.694 . 172.16.7.101:53 172.16.7.105:53 {
+        dns_debug
+        service_debug
+    }
     proxy . 8.8.8.8:53
 }
 ~~~
