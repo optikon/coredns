@@ -6,6 +6,11 @@ import (
 	"net/http"
 )
 
+const (
+	respHeaderKey = "updated"
+	respHeaderVal = "T"
+)
+
 // Start listening for table updates on port 8053.
 func (e *Edge) startListeningForTableUpdates() {
 	e.server = &http.Server{Addr: ":" + pushPort}
@@ -33,6 +38,7 @@ func (e *Edge) parseTableUpdate(w http.ResponseWriter, r *http.Request) {
 	case Delete:
 		e.table.Remove(update.Meta, update.Event.Service)
 	}
+	w.Header().Add(respHeaderKey, respHeaderVal)
 }
 
 // Stop listening for updates.
