@@ -25,8 +25,11 @@ const (
 	defaultExpire           = 10 * time.Second
 	defaultMaxUpstreamFails = 2
 	maxUpstreams            = 15
-	dnsDebugMode            = true
-	svcDebugMode            = false
+)
+
+var (
+	dnsDebugMode = false
+	svcDebugMode = false
 )
 
 // Site is a wrapper for all information needed about edge sites.

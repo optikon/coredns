@@ -36,6 +36,8 @@ edge MY_IP LONGITUDE LATITUDE BASE_DOMAIN UPSTREAMS... {
     tls_servername NAME
     policy random|round_robin|sequential
     health_check DURATION
+    dns_debug
+    service_debug
 }
 ~~~
 
@@ -54,6 +56,8 @@ edge MY_IP LONGITUDE LATITUDE BASE_DOMAIN UPSTREAMS... {
 * `tls_servername` __NAME__ allows you to set a server name in the TLS configuration; for instance 9.9.9.9 needs this to be set to `dns.quad9.net`.
 * `policy` specifies the policy to use for selecting upstream servers. The default is `random`.
 * `health_check`, use a different __DURATION__ for health checking, the default duration is 0.5s.
+* `dns_debug`, turn on debug-level logging for DNS-related logic.
+* `service_debug`, turn on debug-level logging for service-related logic.
 
 Also note the TLS config is "global" for the whole upstream proxy if you need a different `tls-name` for different upstreams you're out of luck.
 

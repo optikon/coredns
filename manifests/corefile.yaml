@@ -9,7 +9,9 @@ data:
         kubernetes cluster.local {
            fallthrough
         }
-        edge ${MY_IP} ${LON} ${LAT} . ${UPSTREAMS}
+        edge ${MY_IP} ${LON} ${LAT} . ${UPSTREAMS} {
+            ${DEBUG_LEVELS}
+        }
         proxy . 8.8.8.8:53
     }
 kind: ConfigMap

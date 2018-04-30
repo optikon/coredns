@@ -269,6 +269,16 @@ func parseBlock(c *caddy.Controller, e *Edge) error {
 			return c.ArgErr()
 		}
 		e.forceTCP = true
+	case "dns_debug":
+		if c.NextArg() {
+			return c.ArgErr()
+		}
+		dnsDebugMode = true
+	case "service_debug":
+		if c.NextArg() {
+			return c.ArgErr()
+		}
+		svcDebugMode = true
 	case "tls":
 		args := c.RemainingArgs()
 		if len(args) > 3 {
