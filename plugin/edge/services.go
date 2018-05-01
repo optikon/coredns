@@ -9,7 +9,7 @@ func (e *Edge) startReadingServices() {
 	go func() {
 		w, err := e.clientset.CoreV1().Services("").Watch(metaV1.ListOptions{Watch: true})
 		if err != nil {
-			log.Errorf("couldn't read locally running Kubernetes services: %v", err)
+			log.Fatalf("couldn't read locally running Kubernetes services: %v", err)
 		}
 		e.watcher = w
 		for {

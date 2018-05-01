@@ -150,13 +150,13 @@ func (p *Proxy) pushServiceEvent(meta Site, event ServiceEvent) error {
 				resp.Body.Close()
 				return
 			}
-			if err != nil {
-				log.Errorf("received error while making upstream push request: %v", err)
+			if err == nil && resp.StatusCode != 200 {
+				log.Errorf("received a not-OK response from upstream: %d", resp.StatusCode)
+				resp.Body.Close()
 				return
 			}
-			if resp.StatusCode != 200 {
-				log.Errorf("received a not-OK response from upstream: %d", resp.StatusCode)
-				return
+			if err != nil {
+				log.Errorf("received error while making upstream push request: %v (trying again)", err)
 			}
 			resp.Body.Close()
 			time.Sleep(time.Second * 10)
