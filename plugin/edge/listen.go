@@ -31,6 +31,8 @@ func (e *Edge) parseTableUpdate(w http.ResponseWriter, r *http.Request) {
 	update := ServiceTableUpdate{}
 	if err = json.Unmarshal(jsn, &update); err != nil {
 		log.Errorln("Error while unmarshalling JSON into table update struct:", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	switch update.Event.Type {
 	case Add:

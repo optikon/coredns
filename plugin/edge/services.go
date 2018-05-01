@@ -20,6 +20,7 @@ func (e *Edge) startReadingServices() {
 				event, err := parseEvent(rawEvent)
 				if err != nil {
 					log.Errorf("couldn't read locally running Kubernetes services: %v", err)
+					continue
 				}
 
 				// Update our local service set accordingly.
@@ -34,7 +35,7 @@ func (e *Edge) startReadingServices() {
 
 				// Log the updated services.
 				if svcDebugMode {
-					log.Infof("Updated services: %+v", e.services)
+					log.Infof("updated services: %+v", e.services)
 				}
 
 				// Push the update upstream.
