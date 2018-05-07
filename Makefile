@@ -1,6 +1,6 @@
 # Makefile for Optikon DNS.
 
-IMAGE ?= intelligentedgeadmin/optikon-dns
+IMAGE ?= optikon/coredns
 TAG ?= 2.1.0
 
 # Build the custom CoreDNS Docker image.
