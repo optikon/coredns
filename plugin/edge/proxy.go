@@ -32,7 +32,6 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/up"
-	"github.com/sigma-dev/sigma/log"
 
 	"github.com/miekg/dns"
 )

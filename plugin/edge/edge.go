@@ -31,7 +31,6 @@ import (
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
-	"github.com/sigma-dev/sigma/log"
 	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
