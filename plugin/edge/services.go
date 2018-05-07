@@ -19,7 +19,7 @@ func (e *Edge) startReadingServices() {
 				// Convert the watch event to our own service event type.
 				event, err := parseEvent(rawEvent)
 				if err != nil {
-					log.Errorf("couldn't read locally running Kubernetes services: %v", err)
+					log.Errorf("unable to parse raw Kubernetes watch event while reading local services: %v", err)
 					continue
 				}
 
