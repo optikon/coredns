@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * NOTE: This software contains code derived from the the Apache-licensed CoreDNS
+ * NOTE: This software contains code derived from the Apache-licensed CoreDNS
  * `forward` plugin (https://github.com/coredns/coredns/blob/master/plugin/forward/setup.go),
  * including various modifications by Cisco Systems, Inc.
  */
