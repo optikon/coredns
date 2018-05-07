@@ -103,15 +103,12 @@ func setup(c *caddy.Controller) error {
 func (e *Edge) OnStartup() (err error) {
 	e.startReadingServices()
 	e.startListeningForTableUpdates()
-	meta := Site{
+	e.site = Site{
 		IP:        e.ip,
 		GeoCoords: e.geoCoords,
 	}
 	for _, p := range e.proxies {
 		p.start(e.healthCheckInterval)
-		if e.NumUpstreams() > 0 {
-			p.startPushingServices(e.svcPushInterval, meta, e.services)
-		}
 	}
 	return nil
 }
@@ -285,35 +282,21 @@ func parseBlock(c *caddy.Controller, e *Edge) error {
 			return fmt.Errorf("health_check can't be negative: %d", dur)
 		}
 		e.healthCheckInterval = dur
-	case "svc_read_interval":
-		if !c.NextArg() {
-			return c.ArgErr()
-		}
-		dur, err := time.ParseDuration(c.Val())
-		if err != nil {
-			return err
-		}
-		if dur < 0 {
-			return fmt.Errorf("svc_read_interval can't be negative: %d", dur)
-		}
-		e.svcReadInterval = dur
-	case "svc_push_interval":
-		if !c.NextArg() {
-			return c.ArgErr()
-		}
-		dur, err := time.ParseDuration(c.Val())
-		if err != nil {
-			return err
-		}
-		if dur < 0 {
-			return fmt.Errorf("svc_push_interval can't be negative: %d", dur)
-		}
-		e.svcPushInterval = dur
 	case "force_tcp":
 		if c.NextArg() {
 			return c.ArgErr()
 		}
 		e.forceTCP = true
+	case "dns_debug":
+		if c.NextArg() {
+			return c.ArgErr()
+		}
+		dnsDebugMode = true
+	case "service_debug":
+		if c.NextArg() {
+			return c.ArgErr()
+		}
+		svcDebugMode = true
 	case "tls":
 		args := c.RemainingArgs()
 		if len(args) > 3 {
