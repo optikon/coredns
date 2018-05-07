@@ -1,7 +1,7 @@
 # Makefile for Optikon DNS.
 
 IMAGE ?= optikon/coredns
-TAG ?= 2.1.0
+TAG ?= 2.1.1
 
 # Build the custom CoreDNS Docker image.
 .PHONY: all

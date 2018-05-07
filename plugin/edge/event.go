@@ -49,5 +49,5 @@ func parseEvent(e watch.Event) (ServiceEvent, error) {
 
 // Generates a services DNS that looks like my-svc.my-namespace.svc.cluster.external
 func generateServiceDNS(svc *v1.Service) string {
-	return fmt.Sprintf("%s.%s.svc.cluster.external", svc.GetName(), svc.GetNamespace())
+	return fmt.Sprintf("%s.%s%s", svc.GetName(), svc.GetNamespace(), serviceExtension)
 }

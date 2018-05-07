@@ -38,16 +38,15 @@ import (
 
 const (
 	pluginName              = "edge"
-	defaultSvcReadInterval  = 2 * time.Second
-	defaultSvcPushInterval  = 3 * time.Second
 	defaultExpire           = 10 * time.Second
 	defaultMaxUpstreamFails = 2
 	maxUpstreams            = 15
 )
 
 var (
-	dnsDebugMode = false
-	svcDebugMode = false
+	dnsDebugMode     = false
+	svcDebugMode     = false
+	serviceExtension = ".svc.cluster.external"
 )
 
 // Site is a wrapper for all information needed about edge sites.
@@ -68,6 +67,9 @@ type Edge struct {
 
 	// Clientset is a reference to in-cluster Kubernetes API.
 	clientset *kubernetes.Clientset
+
+	// ServiceExtension is the DNS extension appended to all Kubernetes service names.
+	serviceExtension string
 
 	// Watcher is a watcher object for receiving event updates from the K8s API.
 	watcher watch.Interface

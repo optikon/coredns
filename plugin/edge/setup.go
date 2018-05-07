@@ -312,6 +312,11 @@ func parseBlock(c *caddy.Controller, e *Edge) error {
 			return c.ArgErr()
 		}
 		e.tlsServerName = c.Val()
+	case "service_extension":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		e.serviceExtension = c.Val()
 	case "expire":
 		if !c.NextArg() {
 			return c.ArgErr()
