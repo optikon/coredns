@@ -21,11 +21,11 @@ func (e *Edge) startListeningForTableUpdates() {
 func (e *Edge) parseTableUpdate(w http.ResponseWriter, r *http.Request) {
 	jsn, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Errorln("Error while reading table update:", err)
+		log.Errorln("error while reading table update:", err)
 	}
 	update := ServiceTableUpdate{}
 	if err = json.Unmarshal(jsn, &update); err != nil {
-		log.Errorln("Error while unmarshalling JSON into table update struct:", err)
+		log.Errorln("error while unmarshalling JSON into table update struct:", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}

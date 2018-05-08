@@ -162,7 +162,7 @@ func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 	// Log the incoming request.
 	if dnsDebugMode {
-		log.Infof("receiving request:\n%+v", r)
+		log.Debugf("receiving request:\n%+v", r)
 	}
 
 	// Encapsolate the state of the request and response.
@@ -188,7 +188,7 @@ func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	if !locFound && e.services.Contains(requestedService) {
 		writeAuthoritativeResponse(res, &state, e.ip)
 		if dnsDebugMode {
-			log.Infof("requested service %s found running locally. returning my ip", requestedService)
+			log.Debugf("requested service %s found running locally. returning my ip", requestedService)
 		}
 		return dns.RcodeSuccess, nil
 	}
@@ -205,7 +205,7 @@ func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		}
 		writeAuthoritativeResponse(res, &state, closest)
 		if dnsDebugMode {
-			log.Infof("requested service %s found in table. returning its IP: %s", requestedService, closest.String())
+			log.Debugf("requested service %s found in table. returning its IP: %s", requestedService, closest.String())
 		}
 		return dns.RcodeSuccess, nil
 	}
@@ -214,7 +214,7 @@ func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	// `proxy` plugin.
 	if e.NumUpstreams() == 0 {
 		if dnsDebugMode {
-			log.Infoln("no upstream proxies to resolve request. falling through to `proxy` plugin")
+			log.Debugln("no upstream proxies to resolve request. falling through to `proxy` plugin")
 		}
 		return plugin.NextOrFailure(e.Name(), e.Next, ctx, w, r)
 	}
@@ -222,7 +222,7 @@ func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	// Inject my location as a LOC record in the Extra fields of the message.
 	insertLocationRecord(r, e.locRR)
 	if dnsDebugMode {
-		log.Infof("forwarding request upstream: %+v", r)
+		log.Debugf("forwarding request upstream: %+v", r)
 	}
 
 	// Forward the request to one of the upstream proxies.

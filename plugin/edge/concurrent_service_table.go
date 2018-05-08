@@ -53,7 +53,7 @@ func (cst *ConcurrentServiceTable) Add(meta Site, serviceName string) {
 
 	// Log the new table.
 	if svcDebugMode {
-		log.Infof("Updated table: %+v", cst.table)
+		log.Debugf("updated table: %+v", cst.table)
 	}
 }
 
@@ -74,6 +74,6 @@ func (cst *ConcurrentServiceTable) Remove(meta Site, serviceName string) {
 
 	// Log the new table.
 	if svcDebugMode {
-		log.Infof("Updated table: %+v", cst.table)
+		log.Debugf("updated table: %+v", cst.table)
 	}
 }

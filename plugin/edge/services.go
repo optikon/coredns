@@ -35,7 +35,7 @@ func (e *Edge) startReadingServices() {
 
 				// Log the updated services.
 				if svcDebugMode {
-					log.Infof("updated services: %+v", e.services)
+					log.Debugf("updated services: %+v", e.services)
 				}
 
 				// Push the update upstream.

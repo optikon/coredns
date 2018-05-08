@@ -94,7 +94,6 @@ func NewProxy(addr string, tlsConfig *tls.Config) *Proxy {
 func dnsClient(tlsConfig *tls.Config) *dns.Client {
 	c := new(dns.Client)
 	c.Net = "udp"
-	// TODO(miek): this should be half of healthCheckDuration?
 	c.ReadTimeout = 1 * time.Second
 	c.WriteTimeout = 1 * time.Second
 	if tlsConfig != nil {

@@ -94,7 +94,7 @@ func convertPointToLOC(point Point) (dns.RR, error) {
 
 	// Log the conversion.
 	if dnsDebugMode {
-		log.Infof("converted (%f, %f) to LOC record: %+v", point.Lon, point.Lat, rr)
+		log.Debugf("converted (%f, %f) to LOC record: %+v", point.Lon, point.Lat, rr)
 	}
 
 	return rr, nil
@@ -106,7 +106,7 @@ func convertLOCToPoint(loc dns.RR) (Point, error) {
 	// Assert that the RR is a LOC record.
 	if loc.Header().Rrtype != dns.TypeLOC || loc.Header().Name != edgeDomain {
 		if dnsDebugMode {
-			log.Infof("LOC record expecting type %v and name %s (received %v and %s)", dns.TypeLOC, edgeDomain, loc.Header().Rrtype, loc.Header().Name)
+			log.Debugf("LOC record expecting type %v and name %s (received %v and %s)", dns.TypeLOC, edgeDomain, loc.Header().Rrtype, loc.Header().Name)
 		}
 		return Point{}, errInvalidLOC
 	}
@@ -115,14 +115,14 @@ func convertLOCToPoint(loc dns.RR) (Point, error) {
 	lon, lat, err := parseLOCString(loc.String())
 	if err != nil {
 		if dnsDebugMode {
-			log.Infof("unable to parse LOC string %s (%v)", loc.String(), err)
+			log.Debugf("unable to parse LOC string %s (%v)", loc.String(), err)
 		}
 		return Point{}, err
 	}
 
 	// Log the conversion.
 	if dnsDebugMode {
-		log.Infof("converted LOC record %+v to (%f, %f)", loc.String(), lon, lat)
+		log.Debugf("converted LOC record %+v to (%f, %f)", loc.String(), lon, lat)
 	}
 
 	return NewPoint(lon, lat), nil
@@ -140,7 +140,7 @@ func parseLOCString(l string) (float64, float64, error) {
 
 	// Log the parsed parts.
 	if dnsDebugMode {
-		log.Infof("parsed latitude_degrees=%s, latitude_minutes=%s, latitude_seconds=%s, latitude_direction=%s, longitude_degrees=%s, longitude_minutes=%s, longitude_seconds=%s, longitude_direction=%s, altitude=%s, size=%s, horizontal_precision=%s, vertical_precision=%s", parts[1], parts[2], parts[3], parts[4], parts[5], parts[6], parts[7], parts[8], parts[9], parts[10], parts[11], parts[12])
+		log.Debugf("parsed latitude_degrees=%s, latitude_minutes=%s, latitude_seconds=%s, latitude_direction=%s, longitude_degrees=%s, longitude_minutes=%s, longitude_seconds=%s, longitude_direction=%s, altitude=%s, size=%s, horizontal_precision=%s, vertical_precision=%s", parts[1], parts[2], parts[3], parts[4], parts[5], parts[6], parts[7], parts[8], parts[9], parts[10], parts[11], parts[12])
 	}
 
 	// Parse the latitude d, m, s values into decimal degrees.
@@ -199,7 +199,7 @@ func dmsToDD(d, m, s string, limit uint64) (float64, bool) {
 
 	// Log conversion.
 	if dnsDebugMode {
-		log.Infof("converted DMS (d=%s, m=%s, s=%s) into %f", d, m, s, result)
+		log.Debugf("converted DMS (d=%s, m=%s, s=%s) into %f", d, m, s, result)
 	}
 
 	return result, true
