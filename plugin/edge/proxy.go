@@ -41,6 +41,7 @@ const (
 	dialTimeout         = 4 * time.Second
 	timeout             = 2 * time.Second
 	healthCheckDuration = 500 * time.Millisecond
+	servicePushDuration = 10 * time.Second
 	pushPort            = "8053"
 	pushProtocol        = "http"
 )
@@ -160,19 +161,26 @@ func (p *Proxy) pushServiceEvent(meta Site, event ServiceEvent) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
+	ticker := time.NewTicker(servicePushDuration)
 	go func() {
 		for {
-			resp, err := client.Do(req)
-			if err == nil {
+			select {
+			case <-ticker.C:
+				resp, err := client.Do(req)
+				if err != nil {
+					log.Errorf("received error while making upstream push request: %v (trying again)", err)
+					continue
+				}
 				if resp.StatusCode != 200 {
 					log.Errorf("received a not-OK response from upstream: %d", resp.StatusCode)
 				}
 				resp.Body.Close()
+				ticker.Stop()
+				return
+			case <-p.pushChan:
+				ticker.Stop()
 				return
 			}
-			log.Errorf("received error while making upstream push request: %v (trying again)", err)
-			resp.Body.Close()
-			time.Sleep(time.Second * 10)
 		}
 	}()
 	return nil

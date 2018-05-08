@@ -67,6 +67,13 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error(pluginName, fmt.Errorf("more than %d TOs configured: %d", maxUpstreams, e.NumUpstreams()))
 	}
 
+	// Set log level.
+	if debugMode {
+		log.SetLevel(logrus.DebugLevel)
+	} else {
+		log.SetLevel(logrus.InfoLevel)
+	}
+
 	// Convert the geographic lon-lat coordinates into a LOC record.
 	e.locRR, err = convertPointToLOC(e.geoCoords)
 	if err != nil {
@@ -287,16 +294,11 @@ func parseBlock(c *caddy.Controller, e *Edge) error {
 			return c.ArgErr()
 		}
 		e.forceTCP = true
-	case "dns_debug":
+	case "debug_mode":
 		if c.NextArg() {
 			return c.ArgErr()
 		}
-		dnsDebugMode = true
-	case "service_debug":
-		if c.NextArg() {
-			return c.ArgErr()
-		}
-		svcDebugMode = true
+		debugMode = true
 	case "tls":
 		args := c.RemainingArgs()
 		if len(args) > 3 {

@@ -36,8 +36,7 @@ edge MY_IP LONGITUDE LATITUDE BASE_DOMAIN UPSTREAMS... {
     tls_servername NAME
     policy random|round_robin|sequential
     health_check DURATION
-    dns_debug
-    service_debug
+    debug_mode
     service_extension NAME
 }
 ~~~
@@ -57,8 +56,7 @@ edge MY_IP LONGITUDE LATITUDE BASE_DOMAIN UPSTREAMS... {
 * `tls_servername` __NAME__ allows you to set a server name in the TLS configuration; for instance 9.9.9.9 needs this to be set to `dns.quad9.net`.
 * `policy` specifies the policy to use for selecting upstream servers. The default is `random`.
 * `health_check`, use a different __DURATION__ for health checking, the default duration is 0.5s.
-* `dns_debug`, turn on debug-level logging for DNS-related logic.
-* `service_debug`, turn on debug-level logging for service-related logic.
+* `debug_mode`, turn on debug-level logging.
 * `service_extension`, __NAME__ allows you to specify the Kubernetes service domain extension. Default is `.svc.cluster.external`.
 
 Also note the TLS config is "global" for the whole upstream proxy if you need a different `tls-name` for different upstreams you're out of luck.
@@ -77,8 +75,7 @@ An example Corefile might look like
        fallthrough
     }
     edge 172.16.7.102 43.264 36.694 . 172.16.7.101:53 172.16.7.105:53 {
-        dns_debug
-        service_debug
+        debug_mode
         service_extension .my.co
     }
     proxy . 8.8.8.8:53

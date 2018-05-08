@@ -44,8 +44,7 @@ const (
 )
 
 var (
-	dnsDebugMode     = false
-	svcDebugMode     = false
+	debugMode        = false
 	serviceExtension = ".svc.cluster.external"
 )
 
@@ -161,9 +160,7 @@ func (e *Edge) NumUpstreams() int { return len(e.proxies) }
 func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
 	// Log the incoming request.
-	if dnsDebugMode {
-		log.Debugf("receiving request:\n%+v", r)
-	}
+	log.Debugf("receiving request:\n%+v", r)
 
 	// Encapsolate the state of the request and response.
 	state := request.Request{W: w, Req: r}
@@ -187,9 +184,7 @@ func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	// with my ip if it is.
 	if !locFound && e.services.Contains(requestedService) {
 		writeAuthoritativeResponse(res, &state, e.ip)
-		if dnsDebugMode {
-			log.Debugf("requested service %s found running locally. returning my ip", requestedService)
-		}
+		log.Debugf("requested service %s found running locally. returning my ip", requestedService)
 		return dns.RcodeSuccess, nil
 	}
 
@@ -204,26 +199,20 @@ func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			closest = findClosestToPoint(edgeSites, e.geoCoords)
 		}
 		writeAuthoritativeResponse(res, &state, closest)
-		if dnsDebugMode {
-			log.Debugf("requested service %s found in table. returning its IP: %s", requestedService, closest.String())
-		}
+		log.Debugf("requested service %s found in table. returning its IP: %s", requestedService, closest.String())
 		return dns.RcodeSuccess, nil
 	}
 
 	// If we have no upstream proxies to forward to, fallthrough to the
 	// `proxy` plugin.
 	if e.NumUpstreams() == 0 {
-		if dnsDebugMode {
-			log.Debugln("no upstream proxies to resolve request. falling through to `proxy` plugin")
-		}
+		log.Debugln("no upstream proxies to resolve request. falling through to `proxy` plugin")
 		return plugin.NextOrFailure(e.Name(), e.Next, ctx, w, r)
 	}
 
 	// Inject my location as a LOC record in the Extra fields of the message.
 	insertLocationRecord(r, e.locRR)
-	if dnsDebugMode {
-		log.Debugf("forwarding request upstream: %+v", r)
-	}
+	log.Debugf("forwarding request upstream: %+v", r)
 
 	// Forward the request to one of the upstream proxies.
 	fails := 0
@@ -301,17 +290,13 @@ func (e *Edge) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 	// If there was an upstream error, return a server failure.
 	if upstreamErr != nil {
-		if dnsDebugMode {
-			log.Infoln("upstream proxy generated an error (%v)", upstreamErr)
-		}
+		log.Infoln("upstream proxy generated an error (%v)", upstreamErr)
 		return dns.RcodeServerFailure, upstreamErr
 	}
 
 	// If the request can't be resolved by anything upstream, or if all the upstreams
 	// are unresponsive, fall through to proxy.
-	if dnsDebugMode {
-		log.Infoln("no healthy upstream proxies. falling through to `proxy` plugin")
-	}
+	log.Infoln("no healthy upstream proxies. falling through to `proxy` plugin")
 	return plugin.NextOrFailure(e.Name(), e.Next, ctx, w, r)
 }
 

@@ -52,9 +52,7 @@ func (cst *ConcurrentServiceTable) Add(meta Site, serviceName string) {
 	}
 
 	// Log the new table.
-	if svcDebugMode {
-		log.Debugf("updated table: %+v", cst.table)
-	}
+	log.Debugf("updated table: %+v", cst.table)
 }
 
 // Remove deletes an entry from the table.
@@ -73,7 +71,5 @@ func (cst *ConcurrentServiceTable) Remove(meta Site, serviceName string) {
 	}
 
 	// Log the new table.
-	if svcDebugMode {
-		log.Debugf("updated table: %+v", cst.table)
-	}
+	log.Debugf("updated table: %+v", cst.table)
 }
