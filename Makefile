@@ -1,13 +1,12 @@
 # Makefile for Optikon DNS.
 
-IMAGE ?= intelligentedgeadmin/optikon-dns
-TAG ?= 1.0.0
+IMAGE ?= optikon/coredns
+TAG ?= local
 
 # Build the custom CoreDNS Docker image.
-.PHONY: all
-all:
+.PHONY: container
+container:
 	docker build -t $(IMAGE):$(TAG) .
-	docker rmi -f $$(docker images -q -f dangling=true)
 
 # Removes all object and executable files.
 .PHONY: clean
