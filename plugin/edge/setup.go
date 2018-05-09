@@ -1,23 +1,53 @@
+/*
+ * Copyright 2018 The CoreDNS Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License. You may obtain
+ * a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * NOTE: This software contains code derived from the Apache-licensed CoreDNS
+ * `forward` plugin (https://github.com/coredns/coredns/blob/master/plugin/forward/setup.go),
+ * including various modifications by Cisco Systems, Inc.
+ */
+
 package edge
 
 import (
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"time"
 
+	"github.com/mholt/caddy"
+	"github.com/sirupsen/logrus"
+
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	pkgtls "github.com/coredns/coredns/plugin/pkg/tls"
-
-	"github.com/mholt/caddy"
 )
 
-// Registers plugin upon package import.
+// The global logger for this plugin.
+var log *logrus.Logger
+
+// Registers plugin and initializes logger.
 func init() {
-	caddy.RegisterPlugin("optikon-edge", caddy.Plugin{
+
+	// Initialize logger.
+	log = logrus.New()
+	log.Out = os.Stdout
+
+	// Register plugin with caddy.
+	caddy.RegisterPlugin(pluginName, caddy.Plugin{
 		ServerType: "dns",
 		Action:     setup,
 	})
@@ -27,115 +57,155 @@ func init() {
 func setup(c *caddy.Controller) error {
 
 	// Parse the plugin arguments.
-	oe, err := parseOptikonEdge(c)
+	e, err := parseEdge(c)
 	if err != nil {
-		return plugin.Error("optikon-edge", err)
+		return plugin.Error(pluginName, err)
 	}
-	if oe.Len() > max {
-		return plugin.Error("optikon-edge", fmt.Errorf("more than %d TOs configured: %d", max, oe.Len()))
+
+	// Make sure the max number of upstream proxies isn't exceeded.
+	if e.NumUpstreams() > maxUpstreams {
+		return plugin.Error(pluginName, fmt.Errorf("more than %d TOs configured: %d", maxUpstreams, e.NumUpstreams()))
+	}
+
+	// Set log level.
+	if debugMode {
+		log.SetLevel(logrus.DebugLevel)
+	} else {
+		log.SetLevel(logrus.InfoLevel)
+	}
+
+	// Convert the geographic lon-lat coordinates into a LOC record.
+	e.locRR, err = convertPointToLOC(e.geoCoords)
+	if err != nil {
+		return err
 	}
 
 	// Add the plugin handler to the dnsserver.
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		oe.Next = next
-		return oe
+		e.clientset, err = RegisterKubernetesClient()
+		e.Next = next
+		return e
 	})
+	if err != nil {
+		return err
+	}
 
-	// Register Prometheus metrics.
+	// Declare a startup routine.
 	c.OnStartup(func() error {
-		once.Do(func() {
-			metrics.MustRegister(c, RequestCount, RcodeCount, RequestDuration, HealthcheckFailureCount, SocketGauge)
-		})
-		return oe.OnStartup()
+		log.Infof("starting %s plugin...", pluginName)
+		return e.OnStartup()
 	})
 
+	// Declare a teardown routine.
 	c.OnShutdown(func() error {
-		return oe.OnShutdown()
+		log.Infof("shutting down %s plugin...", pluginName)
+		return e.OnShutdown()
 	})
 
 	return nil
 }
 
-// OnStartup starts a goroutines for all proxies.
-func (oe *OptikonEdge) OnStartup() (err error) {
-	for _, p := range oe.proxies {
-		p.start(oe.hcInterval)
+// OnStartup starts reading/pushing services and listening for downstream
+// table updates.
+func (e *Edge) OnStartup() (err error) {
+	e.startReadingServices()
+	e.startListeningForTableUpdates()
+	e.site = Site{
+		IP:        e.ip,
+		GeoCoords: e.geoCoords,
+	}
+	for _, p := range e.proxies {
+		p.start(e.healthCheckInterval)
 	}
 	return nil
 }
 
-// OnShutdown stops all configured proxies.
-func (oe *OptikonEdge) OnShutdown() error {
-	for _, p := range oe.proxies {
+// OnShutdown stops all async processes.
+func (e *Edge) OnShutdown() error {
+	e.stopReadingServices()
+	e.stopListeningForTableUpdates()
+	for _, p := range e.proxies {
 		p.close()
 	}
 	return nil
 }
 
 // Close is a synonym for OnShutdown().
-func (oe *OptikonEdge) Close() { oe.OnShutdown() }
+func (e *Edge) Close() { e.OnShutdown() }
 
-// Parse the Corefile tokens associated with this plugin.
-func parseOptikonEdge(c *caddy.Controller) (*OptikonEdge, error) {
+// Parse the Corefile token.
+func parseEdge(c *caddy.Controller) (*Edge, error) {
 
-	// Initialize a new OptikonEdge struct.
-	oe := New()
+	// Initialize a new Edge struct.
+	e := New()
 
-	protocols := map[int]int{}
+	// Declare protocols outside loop scope.
+	var protocols map[int]int
 
+	// Read in the plugin arguments.
 	i := 0
 	for c.Next() {
+
+		// Make sure the plugin is only specified once in the Corefile.
 		if i > 0 {
 			return nil, plugin.ErrOnce
 		}
 		i++
 
-		// Parse the edge cluster's longitude value.
-		var lon string
+		// Parse my IP address and assert that it's valid.
+		var ip string
+		if !c.Args(&ip) {
+			return e, c.ArgErr()
+		}
+		e.ip = net.ParseIP(ip)
+		if e.ip == nil {
+			return nil, errInvalidIP
+		}
+
+		// Parse the edge cluster's longitude and latitude values.
+		var lon, lat string
 		if !c.Args(&lon) {
-			return oe, c.ArgErr()
+			return e, c.ArgErr()
 		}
 		parsedLon, err := strconv.ParseFloat(lon, 64)
 		if err != nil {
-			return oe, err
+			return e, err
 		}
-		oe.lon = parsedLon
-
-		// Parse the latitude value.
-		var lat string
 		if !c.Args(&lat) {
-			return oe, c.ArgErr()
+			return e, c.ArgErr()
 		}
 		parsedLat, err := strconv.ParseFloat(lat, 64)
 		if err != nil {
-			return oe, err
+			return e, err
 		}
-		oe.lat = parsedLat
+		e.geoCoords = NewPoint(parsedLon, parsedLat)
 
-		if !c.Args(&oe.from) {
-			return oe, c.ArgErr()
+		// Parse and normalize the base domain.
+		if !c.Args(&e.baseDomain) {
+			return e, c.ArgErr()
 		}
-		oe.from = plugin.Host(oe.from).Normalize()
+		e.baseDomain = plugin.Host(e.baseDomain).Normalize()
 
-		to := c.RemainingArgs()
-		if len(to) == 0 {
-			return oe, c.ArgErr()
-		}
+		// Parse the upstream addresses as the remaining args.
+		// NOTE: We don't complain if there are no upstreams.
+		upstreams := c.RemainingArgs()
 
 		// A bit fiddly, but first check if we've got protocols and if so add them back in when we create the proxies.
 		protocols = make(map[int]int)
-		for i := range to {
-			protocols[i], to[i] = protocol(to[i])
+		for i := range upstreams {
+			protocols[i], upstreams[i] = protocol(upstreams[i])
 		}
 
 		// If parseHostPortOrFile expands a file with a lot of nameserver our accounting in protocols doesn't make
-		// any sense anymore... For now: lets don't care.
-		toHosts, err := dnsutil.ParseHostPortOrFile(to...)
+		// any sense anymore... For now: we don't care.
+		upstreamHosts, err := dnsutil.ParseHostPortOrFile(upstreams...)
 		if err != nil {
-			return oe, err
+			return e, err
 		}
 
-		for i, h := range toHosts {
+		// Configure the proxies based on the list of upstream hosts.
+		for i, h := range upstreamHosts {
+
 			// Double check the port, if e.g. is 53 and the transport is TLS make it 853.
 			// This can be somewhat annoying because you *can't* have TLS on port 53 then.
 			switch protocols[i] {
@@ -156,30 +226,35 @@ func parseOptikonEdge(c *caddy.Controller) (*OptikonEdge, error) {
 			// We can't set tlsConfig here, because we haven't parsed it yet.
 			// We set it below at the end of parseBlock, use nil now.
 			p := NewProxy(h, nil /* no TLS */)
-			oe.proxies = append(oe.proxies, p)
+			e.proxies = append(e.proxies, p)
 		}
 
+		// Parse the extra configuration.
 		for c.NextBlock() {
-			if err := parseBlock(c, oe); err != nil {
-				return oe, err
+			if err := parseBlock(c, e); err != nil {
+				return e, err
 			}
 		}
 	}
 
-	if oe.tlsServerName != "" {
-		oe.tlsConfig.ServerName = oe.tlsServerName
+	if e.tlsServerName != "" {
+		e.tlsConfig.ServerName = e.tlsServerName
 	}
-	for i := range oe.proxies {
+	for i := range e.proxies {
 		// Only set this for proxies that need it.
 		if protocols[i] == TLS {
-			oe.proxies[i].SetTLSConfig(oe.tlsConfig)
+			e.proxies[i].SetTLSConfig(e.tlsConfig)
 		}
-		oe.proxies[i].SetExpire(oe.expire)
+		e.proxies[i].SetExpire(e.expire)
 	}
-	return oe, nil
+	return e, nil
 }
 
-func parseBlock(c *caddy.Controller, oe *OptikonEdge) error {
+// Parses the extra plugin configuration flags in the block section of the
+// plugin arguments.
+func parseBlock(c *caddy.Controller, e *Edge) error {
+
+	// See README for explanation of these arguments.
 	switch c.Val() {
 	case "except":
 		ignore := c.RemainingArgs()
@@ -189,7 +264,7 @@ func parseBlock(c *caddy.Controller, oe *OptikonEdge) error {
 		for i := 0; i < len(ignore); i++ {
 			ignore[i] = plugin.Host(ignore[i]).Normalize()
 		}
-		oe.ignored = ignore
+		e.ignored = ignore
 	case "max_fails":
 		if !c.NextArg() {
 			return c.ArgErr()
@@ -201,7 +276,7 @@ func parseBlock(c *caddy.Controller, oe *OptikonEdge) error {
 		if n < 0 {
 			return fmt.Errorf("max_fails can't be negative: %d", n)
 		}
-		oe.maxfails = uint32(n)
+		e.maxUpstreamFails = uint32(n)
 	case "health_check":
 		if !c.NextArg() {
 			return c.ArgErr()
@@ -213,28 +288,37 @@ func parseBlock(c *caddy.Controller, oe *OptikonEdge) error {
 		if dur < 0 {
 			return fmt.Errorf("health_check can't be negative: %d", dur)
 		}
-		oe.hcInterval = dur
+		e.healthCheckInterval = dur
 	case "force_tcp":
 		if c.NextArg() {
 			return c.ArgErr()
 		}
-		oe.forceTCP = true
+		e.forceTCP = true
+	case "debug_mode":
+		if c.NextArg() {
+			return c.ArgErr()
+		}
+		debugMode = true
 	case "tls":
 		args := c.RemainingArgs()
 		if len(args) > 3 {
 			return c.ArgErr()
 		}
-
 		tlsConfig, err := pkgtls.NewTLSConfigFromArgs(args...)
 		if err != nil {
 			return err
 		}
-		oe.tlsConfig = tlsConfig
+		e.tlsConfig = tlsConfig
 	case "tls_servername":
 		if !c.NextArg() {
 			return c.ArgErr()
 		}
-		oe.tlsServerName = c.Val()
+		e.tlsServerName = c.Val()
+	case "service_extension":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		e.serviceExtension = c.Val()
 	case "expire":
 		if !c.NextArg() {
 			return c.ArgErr()
@@ -246,25 +330,22 @@ func parseBlock(c *caddy.Controller, oe *OptikonEdge) error {
 		if dur < 0 {
 			return fmt.Errorf("expire can't be negative: %s", dur)
 		}
-		oe.expire = dur
+		e.expire = dur
 	case "policy":
 		if !c.NextArg() {
 			return c.ArgErr()
 		}
 		switch x := c.Val(); x {
 		case "random":
-			oe.p = &random{}
+			e.policy = &random{}
 		case "round_robin":
-			oe.p = &roundRobin{}
+			e.policy = &roundRobin{}
 		default:
 			return c.Errf("unknown policy '%s'", x)
 		}
-
 	default:
 		return c.Errf("unknown property '%s'", c.Val())
 	}
 
 	return nil
 }
-
-const max = 15 // Maximum number of upstreams.

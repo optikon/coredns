@@ -1,7 +1,26 @@
+/*
+ * Copyright 2018 The CoreDNS Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License. You may obtain
+ * a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * NOTE: This software contains code derived from the Apache-licensed CoreDNS
+ * `forward` plugin (https://github.com/coredns/coredns/blob/master/plugin/forward/connect.go),
+ * including various modifications by Cisco Systems, Inc.
+ */
+
 package edge
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/coredns/coredns/request"
@@ -10,8 +29,8 @@ import (
 	"golang.org/x/net/context"
 )
 
+// Establishes a connection and forwards a message to the upstream proxy.
 func (p *Proxy) connect(ctx context.Context, state request.Request, forceTCP, metric bool) (*dns.Msg, error) {
-	start := time.Now()
 
 	proto := state.Proto()
 	if forceTCP {
@@ -43,17 +62,6 @@ func (p *Proxy) connect(ctx context.Context, state request.Request, forceTCP, me
 	}
 
 	p.Yield(conn)
-
-	if metric {
-		rc, ok := dns.RcodeToString[ret.Rcode]
-		if !ok {
-			rc = strconv.Itoa(ret.Rcode)
-		}
-
-		RequestCount.WithLabelValues(p.addr).Add(1)
-		RcodeCount.WithLabelValues(rc, p.addr).Add(1)
-		RequestDuration.WithLabelValues(p.addr).Observe(time.Since(start).Seconds())
-	}
 
 	return ret, nil
 }

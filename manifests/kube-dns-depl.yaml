@@ -33,7 +33,7 @@ spec:
       - args:
         - -conf
         - /etc/coredns/Corefile
-        image: intelligentedgeadmin/optikon-dns:1.0.0
+        image: optikon/coredns:2.1.1
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 5
@@ -55,6 +55,10 @@ spec:
           name: dns-tcp
           protocol: TCP
           hostPort: 53
+        - containerPort: 8053
+          name: daemon
+          protocol: TCP
+          hostPort: 8053
         resources:
           limits:
             memory: 170Mi

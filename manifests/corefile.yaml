@@ -5,10 +5,11 @@ data:
         errors
         health
         log
+        cache 30
         kubernetes cluster.local {
            fallthrough
         }
-        optikon-central
+        edge ${MY_IP} ${LON} ${LAT} . ${UPSTREAMS} ${EXTRA_CONFIGS}
         proxy . 8.8.8.8:53
     }
 kind: ConfigMap
