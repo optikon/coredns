@@ -15,4 +15,4 @@ clean:
 
 # Removes and rebuilds everything.
 .PHONY: fresh
-fresh: clean all
+fresh: clean container

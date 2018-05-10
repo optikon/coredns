@@ -8,7 +8,7 @@
 
 This plugin is responsible for resolving incoming client requests by either returning its own IP if the service is already running on this cluster, otherwise it performs a lookup in its local `serviceDNS->[]edgeSite` mapping and tried to find an edge site that is running the requested service closest to the requested. If no such service can be found, it forwards the request up to its (possibly many) upstream proxies, which perform the same process in a CDN-like behavior. Whatever gets returned from upstream is used as the authoritative answer and is sent back to the client.
 
-This plugin also runs a routine daemon process that calls the Kubernetes cluster API to watch its running services, and pushes that any service updates up to its upstream proxies so they can update their local tables and accurately resolve future requests. This plugin also plays the roll of an upstream proxy, listening for service events to be pushed up from downstream edge sites via a simple RESTful API passing JSON data.
+This plugin also runs a routine daemon process that calls the Kubernetes cluster API to watch its running services, and pushes any service updates up to its upstream proxies so they can update their service tables and accurately resolve future requests. This plugin also plays the roll of an upstream proxy, listening for service events to be pushed up from downstream edge sites via a simple RESTful API passing JSON data.
 
 ## Syntax
 
