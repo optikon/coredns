@@ -318,7 +318,7 @@ func parseBlock(c *caddy.Controller, e *Edge) error {
 		if !c.NextArg() {
 			return c.ArgErr()
 		}
-		e.serviceExtension = c.Val()
+		serviceExtension = c.Val()
 	case "expire":
 		if !c.NextArg() {
 			return c.ArgErr()

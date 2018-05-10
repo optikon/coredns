@@ -67,9 +67,6 @@ type Edge struct {
 	// Clientset is a reference to in-cluster Kubernetes API.
 	clientset *kubernetes.Clientset
 
-	// ServiceExtension is the DNS extension appended to all Kubernetes service names.
-	serviceExtension string
-
 	// Watcher is a watcher object for receiving event updates from the K8s API.
 	watcher watch.Interface
 
